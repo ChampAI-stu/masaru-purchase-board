@@ -287,7 +287,9 @@
         <option value="__soon__">🔥 ใกล้เข้า (≤7 วัน)</option>
         <option value="__over__">⚠️ เลยกำหนด</option>
       </select>
+      <button class="add-btn" id="importBtn" style="display:none;background:#1E7145">📥 นำเข้า Excel</button>
       <button class="add-btn" id="addBtn" style="display:none">+ เพิ่ม PO</button>
+      <input type="file" id="importFile" accept=".xlsx,.xls,.csv" style="display:none">
     </div>
 
     <div class="table-card">
@@ -415,9 +417,52 @@
   </div>
 </div>
 
+<!-- ============ Modal นำเข้า Excel ============ -->
+<div class="modal-bg" id="importBg">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-head">
+      <h2>📥 นำเข้าจาก Excel</h2>
+      <button class="modal-close" id="importClose">&times;</button>
+    </div>
+
+    <div style="background:var(--blue-bg);border:1px solid #378ADD33;border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;line-height:1.7">
+      <b>วิธีใช้:</b><br>
+      1. ดาวน์โหลดเทมเพลต → กรอกข้อมูล<br>
+      2. คอลัมน์: <b>เลขที่ PO · SKU · จำนวน · วันที่เข้าคลัง · สถานะ · หมายเหตุ</b><br>
+      3. เลือกไฟล์ → ตรวจตัวอย่าง → ยืนยันนำเข้า
+    </div>
+
+    <button class="add-sku-btn" id="downloadTemplateBtn" style="border-color:#1E7145;color:#1E7145;margin-bottom:14px">
+      ⬇ ดาวน์โหลดเทมเพลต Excel
+    </button>
+
+    <button class="add-sku-btn" id="chooseFileBtn" style="margin-bottom:14px">
+      📂 เลือกไฟล์ Excel / CSV
+    </button>
+    <div id="importFileName" style="font-size:13px;color:var(--muted);margin-bottom:10px"></div>
+
+    <div id="importPreview" style="display:none">
+      <div style="font-weight:600;color:var(--navy);margin-bottom:8px">ตัวอย่างข้อมูล (<span id="importCount">0</span> รายการ)</div>
+      <div style="max-height:240px;overflow:auto;border:1px solid var(--line);border-radius:9px">
+        <table style="font-size:12px"><thead><tr>
+          <th style="padding:8px 10px">เลขที่ PO</th><th style="padding:8px 10px">SKU</th>
+          <th style="padding:8px 10px">จำนวน</th><th style="padding:8px 10px">วันที่เข้าคลัง</th>
+          <th style="padding:8px 10px">สถานะ</th><th style="padding:8px 10px">หมายเหตุ</th>
+        </tr></thead><tbody id="importPreviewBody"></tbody></table>
+      </div>
+    </div>
+
+    <div class="modal-foot">
+      <button class="btn-cancel" id="importCancel">ยกเลิก</button>
+      <button class="btn-save" id="importConfirm" disabled style="opacity:.5">ยืนยันนำเข้า</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 // ===== CONFIG =====
 const SUPABASE_URL = 'https://ykeplonjemxcqnrzznhm.supabase.co';
@@ -484,6 +529,7 @@ function enterApp(session){
   if(currentRole === 'purchase'){
     $('rolePill').textContent = '📦 ฝ่ายจัดซื้อ (แก้ไขได้)';
     $('addBtn').style.display='block';
+    $('importBtn').style.display='block';
     $('actionsHead').style.display='';
     $('editAnnounceBtn').style.display='block';
   } else {
@@ -794,6 +840,138 @@ window.delOrder = async function(id){
   toast('ลบเรียบร้อย');
   loadOrders();
 };
+
+// ===== นำเข้าจาก Excel =====
+let importRecords = [];
+
+$('importBtn').addEventListener('click', () => {
+  importRecords = [];
+  $('importFileName').textContent = '';
+  $('importPreview').style.display = 'none';
+  $('importConfirm').disabled = true; $('importConfirm').style.opacity = '.5';
+  $('importBg').style.display = 'flex';
+});
+$('importClose').addEventListener('click', () => $('importBg').style.display='none');
+$('importCancel').addEventListener('click', () => $('importBg').style.display='none');
+$('importBg').addEventListener('click', e => { if(e.target===$('importBg')) $('importBg').style.display='none'; });
+
+$('chooseFileBtn').addEventListener('click', () => $('importFile').click());
+$('importFile').addEventListener('change', handleImportFile);
+$('downloadTemplateBtn').addEventListener('click', downloadTemplate);
+$('importConfirm').addEventListener('click', confirmImport);
+
+function downloadTemplate(){
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['เลขที่ PO','SKU','จำนวน','วันที่เข้าคลัง','สถานะ','หมายเหตุ'],
+    ['1001','MCG-450N',200,'2026-07-15','สั่งแล้ว','ตัวอย่าง — ลบแถวนี้ได้'],
+    ['1001','SCG-630N',150,'2026-07-15','สั่งแล้ว',''],
+  ]);
+  ws['!cols'] = [{wch:12},{wch:16},{wch:10},{wch:16},{wch:18},{wch:24}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'PO');
+  XLSX.writeFile(wb, 'template_po_masaru.xlsx');
+}
+
+// แปลงสถานะจาก ERP → สถานะในระบบ (ไม่รู้จัก = รอยืนยัน)
+const STATUS_MAP = {
+  'รออนุมัติ':'รอยืนยัน', 'รอยืนยัน':'รอยืนยัน', 'รอตรวจสอบ':'รอยืนยัน',
+  'อนุมัติแล้ว':'สั่งแล้ว', 'สั่งแล้ว':'สั่งแล้ว', 'รอเข้าคลัง':'สั่งแล้ว',
+  'อยู่ระหว่างขนส่ง':'อยู่ระหว่างขนส่ง', 'กำลังจัดส่ง':'อยู่ระหว่างขนส่ง', 'เข้าคลังบางส่วน':'อยู่ระหว่างขนส่ง',
+  'เข้าคลังแล้ว':'เข้าคลังแล้ว', 'เข้าคลังสำเร็จ':'เข้าคลังแล้ว', 'รับเข้าคลังแล้ว':'เข้าคลังแล้ว'
+};
+function mapStatus(s){
+  s = String(s||'').trim();
+  return STATUS_MAP[s] || 'รอยืนยัน';
+}
+
+function toISODate(v){
+  if(v===''||v==null) return null;
+  let d = (v instanceof Date) ? v : new Date(v);
+  if(isNaN(d)) return null;
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+function handleImportFile(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  $('importFileName').textContent = '📄 ' + file.name;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const wb = XLSX.read(ev.target.result, { type:'array', cellDates:true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
+      if(rows.length < 2){ toast('ไฟล์ไม่มีข้อมูล'); return; }
+      const headers = rows[0].map(h => String(h).trim());
+      // จับคู่แบบ exact ก่อน (กันชนกับคอลัมน์ที่ชื่อคล้ายกัน เช่น รหัสสินค้า vs รหัสใบจัดซื้อสินค้า)
+      const exact = name => headers.findIndex(h => h === name);
+      const has = (...keys) => headers.findIndex(h => keys.some(k => h.includes(k)));
+      const pick = (exacts, contains=[]) => {
+        for(const e of exacts){ const i = exact(e); if(i>=0) return i; }
+        for(const c of contains){ const i = has(c); if(i>=0) return i; }
+        return -1;
+      };
+      const ci = {
+        po:     pick(['รหัสใบจัดซื้อสินค้า','เลขที่ PO'], ['ใบจัดซื้อ']),
+        sku:    pick(['รหัสสินค้า','SKU'], ['SKU']),
+        qty:    pick(['จำนวนสินค้าทั้งหมดที่จัดซื้อ','จำนวน'], ['จำนวนการจัดซื้อสินค้า']),
+        eta:    pick(['เวลาที่คาดว่าจะส่งถึง','วันที่เข้าคลัง'], ['เข้าคลัง','คาดว่าจะส่ง','ETA']),
+        status: pick(['สถานะใบจัดซื้อสินค้า','สถานะ PO'], ['สถานะใบจัดซื้อ']),
+        note:   pick(['หมายเหตุ'], [])
+      };
+      if(ci.sku < 0){ toast('ไม่พบคอลัมน์ SKU — โหลดเทมเพลตไปใช้นะคะ'); return; }
+      importRecords = [];
+      for(let i=1;i<rows.length;i++){
+        const r = rows[i];
+        const sku = String(r[ci.sku]||'').trim();
+        if(!sku) continue;
+        importRecords.push({
+          po_number: ci.po>=0 ? (String(r[ci.po]||'').trim()||null) : null,
+          sku,
+          quantity: ci.qty>=0 ? (parseInt(r[ci.qty])||0) : 0,
+          eta: ci.eta>=0 ? toISODate(r[ci.eta]) : null,
+          status: ci.status>=0 ? mapStatus(r[ci.status]) : 'รอยืนยัน',
+          note: ci.note>=0 ? (String(r[ci.note]||'').trim()||null) : null
+        });
+      }
+      if(importRecords.length === 0){ toast('ไม่พบรายการที่มี SKU'); return; }
+      showImportPreview();
+    } catch(err){
+      console.error(err); toast('อ่านไฟล์ไม่สำเร็จ: '+err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  e.target.value = '';   // รีเซ็ตให้เลือกไฟล์เดิมซ้ำได้
+}
+
+function showImportPreview(){
+  $('importCount').textContent = importRecords.length;
+  $('importPreviewBody').innerHTML = importRecords.slice(0,50).map(r => `<tr>
+    <td style="padding:7px 10px">${esc(r.po_number||'—')}</td>
+    <td style="padding:7px 10px">${esc(r.sku)}</td>
+    <td style="padding:7px 10px">${r.quantity||'—'}</td>
+    <td style="padding:7px 10px">${r.eta?fmtDate(r.eta):'—'}</td>
+    <td style="padding:7px 10px">${esc(r.status)}</td>
+    <td style="padding:7px 10px">${esc(r.note||'—')}</td>
+  </tr>`).join('') + (importRecords.length>50 ? `<tr><td colspan="6" style="padding:8px;text-align:center;color:var(--muted)">…และอีก ${importRecords.length-50} รายการ</td></tr>` : '');
+  $('importPreview').style.display = 'block';
+  $('importConfirm').disabled = false; $('importConfirm').style.opacity = '1';
+}
+
+async function confirmImport(){
+  if(importRecords.length === 0) return;
+  $('importConfirm').disabled = true; $('importConfirm').textContent = 'กำลังนำเข้า...';
+  const email = (await sb.auth.getUser()).data.user?.email || 'purchase';
+  const now = new Date().toISOString();
+  const payload = importRecords.map(r => ({ ...r, created_by: email, updated_at: now }));
+  const { error } = await sb.from('purchase_orders').insert(payload);
+  $('importConfirm').disabled = false; $('importConfirm').textContent = 'ยืนยันนำเข้า';
+  if(error){ toast('นำเข้าไม่สำเร็จ: '+error.message); return; }
+  $('importBg').style.display = 'none';
+  toast(`นำเข้า ${payload.length} รายการเรียบร้อย`);
+  loadOrders();
+}
 
 // ===== HELPERS =====
 function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
