@@ -151,9 +151,9 @@
   /* รายการ SKU หลายบรรทัด */
   .sku-section-label{font-size:14px;font-weight:600;color:var(--navy);margin:20px 0 10px;
     padding-top:16px;border-top:1px solid var(--line)}
-  .sku-lines-head{display:grid;grid-template-columns:1fr 80px 110px 30px;gap:8px;
+  .sku-lines-head{display:grid;grid-template-columns:1fr 90px 34px;gap:8px;
     font-size:11px;color:var(--muted);margin-bottom:6px;padding:0 2px}
-  .sku-line{display:grid;grid-template-columns:1fr 80px 110px 30px;gap:8px;margin-bottom:8px;
+  .sku-line{display:grid;grid-template-columns:1fr 90px 34px;gap:8px;margin-bottom:8px;
     align-items:center}
   .sku-line input{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px}
   .sku-line input:focus{outline:none;border-color:var(--navy-light);box-shadow:0 0 0 3px #2E75B622}
@@ -299,7 +299,6 @@
               <th class="sortable" data-sort="sku">SKU<span class="sort-ind"></span></th>
               <th class="sortable" data-sort="po_number">เลขที่ PO<span class="sort-ind"></span></th>
               <th class="sortable" data-sort="quantity">จำนวน<span class="sort-ind"></span></th>
-              <th id="costHead" class="sortable" data-sort="unit_cost" style="display:none">ต้นทุน/หน่วย<span class="sort-ind"></span></th>
               <th class="sortable" data-sort="eta">วันที่เข้าคลัง<span class="sort-ind"></span></th>
               <th class="sortable" data-sort="status">สถานะ PO<span class="sort-ind"></span></th>
               <th>หมายเหตุ</th>
@@ -405,7 +404,6 @@
     <div class="sku-lines-head">
       <span>SKU / รหัสสินค้า</span>
       <span>จำนวน</span>
-      <span>ต้นทุน/หน่วย 🔒</span>
       <span></span>
     </div>
     <div id="skuLines"></div>
@@ -487,7 +485,6 @@ function enterApp(session){
     $('rolePill').textContent = '📦 ฝ่ายจัดซื้อ (แก้ไขได้)';
     $('addBtn').style.display='block';
     $('actionsHead').style.display='';
-    $('costHead').style.display='';
     $('editAnnounceBtn').style.display='block';
   } else {
     $('rolePill').textContent = '👁️ ฝ่ายการตลาด (ดูอย่างเดียว)';
@@ -568,13 +565,6 @@ async function loadOrders(){
     .select('*').order('created_at',{ascending:false});
   if(error){ console.error(error); return; }
   allOrders = data || [];
-  // โหลดต้นทุนจากตารางแยก — เฉพาะฝ่ายจัดซื้อเท่านั้น (RLS ล็อกไว้ การตลาดอ่านไม่ได้)
-  if(currentRole === 'purchase'){
-    const { data: costs } = await sb.from('po_costs').select('id, unit_cost');
-    const map = {};
-    (costs || []).forEach(c => { map[c.id] = c.unit_cost; });
-    allOrders.forEach(o => { o.unit_cost = (map[o.id] != null) ? map[o.id] : null; });
-  }
   render();
   stampUpdate();
 }
@@ -617,7 +607,7 @@ function render(){
   renderSummary();
   const tb = $('tableBody');
   if(rows.length === 0){
-    const colspan = currentRole==='purchase' ? 9 : 7;
+    const colspan = currentRole==='purchase' ? 8 : 7;
     tb.innerHTML = `<tr><td colspan="${colspan}"><div class="empty">
       <div class="big">📋</div>ยังไม่มีรายการ${q||sf?'ที่ตรงกับการค้นหา':''}</div></td></tr>`;
     return;
@@ -628,9 +618,6 @@ function render(){
         <button class="act-btn" onclick="openEdit('${o.id}')">✏️</button>
         <button class="act-btn act-del" onclick="delOrder('${o.id}')">🗑️</button>
       </div></td>` : '';
-    const costCell = currentRole==='purchase'
-      ? `<td>${o.unit_cost!=null?Number(o.unit_cost).toLocaleString('th-TH',{minimumFractionDigits:0})+' ฿':'—'}</td>`
-      : '';
     const rowClass = est==='over' ? 'row-over' : (est==='soon' ? 'row-soon' : '');
     let etaCell;
     if(!o.eta){
@@ -645,7 +632,6 @@ function render(){
       <td>${o.sku?`<span class="sku">${esc(o.sku)}</span>`:'<span style="color:var(--muted)">—</span>'}</td>
       <td>${o.po_number?`<span class="po-tag">${esc(o.po_number)}</span>`:'<span style="color:var(--muted)">—</span>'}</td>
       <td>${o.quantity?o.quantity.toLocaleString()+' pcs':'—'}</td>
-      ${costCell}
       <td>${etaCell}</td>
       <td><span class="badge ${STATUS_CLASS[o.status]||''}">${STATUS_ICON[o.status]||''} ${esc(o.status)}</span></td>
       <td><span class="note">${o.note?esc(o.note):'—'}</span></td>
@@ -723,7 +709,6 @@ function addSkuLine(vals = {}, allowDelete = true){
   line.innerHTML = `
     <input type="text" class="sl-sku" placeholder="MCG-450N" value="${vals.sku ? esc(vals.sku) : ''}">
     <input type="number" class="sl-qty" placeholder="0" min="0" value="${vals.qty != null ? vals.qty : ''}">
-    <input type="number" class="sl-cost" placeholder="0.00" min="0" step="0.01" value="${vals.cost != null ? vals.cost : ''}">
     <button type="button" class="sku-line-del" title="ลบ">&times;</button>`;
   line.querySelector('.sku-line-del').addEventListener('click', () => {
     const lines = $('skuLines').querySelectorAll('.sku-line');
@@ -749,7 +734,7 @@ window.openEdit = function(id){
   $('editId').value=o.id; $('mPO').value=o.po_number||'';
   $('mEta').value=o.eta||''; $('mStatus').value=o.status||'รอยืนยัน'; $('mNote').value=o.note||'';
   $('skuLines').innerHTML='';
-  addSkuLine({ sku:o.sku, qty:o.quantity, cost:(o.unit_cost!=null)?o.unit_cost:null });
+  addSkuLine({ sku:o.sku, qty:o.quantity });
   $('addSkuLineBtn').style.display='none';   // แก้ไขทีละรายการ ไม่เพิ่มหลาย SKU
   $('modalBg').style.display='flex';
 };
@@ -759,8 +744,7 @@ function closeModal(){ $('modalBg').style.display='none'; }
 function collectSkuLines(){
   return [...$('skuLines').querySelectorAll('.sku-line')].map(l => ({
     sku: l.querySelector('.sl-sku').value.trim(),
-    qty: parseInt(l.querySelector('.sl-qty').value) || 0,
-    cost: l.querySelector('.sl-cost').value ? parseFloat(l.querySelector('.sl-cost').value) : null
+    qty: parseInt(l.querySelector('.sl-qty').value) || 0
   })).filter(x => x.sku);   // เอาเฉพาะบรรทัดที่มี SKU
 }
 
@@ -784,7 +768,6 @@ async function saveOrder(){
     const ln = lines[0];
     ({ error } = await sb.from('purchase_orders')
       .update({ ...shared, sku: ln.sku, quantity: ln.qty }).eq('id', id));
-    if(!error) await saveCost(id, ln.cost);
   } else {
     // เพิ่มใหม่: สร้างหลายแถว แถวละ SKU (ใช้ header PO ร่วมกัน)
     const email = (await sb.auth.getUser()).data.user?.email || 'purchase';
@@ -793,7 +776,6 @@ async function saveOrder(){
         .insert({ ...shared, sku: ln.sku, quantity: ln.qty, created_by: email })
         .select('id').single();
       if(res.error){ error = res.error; break; }
-      await saveCost(res.data.id, ln.cost);
     }
   }
 
@@ -802,15 +784,6 @@ async function saveOrder(){
   closeModal();
   toast(id ? 'แก้ไขเรียบร้อย' : `เพิ่ม ${lines.length} รายการเรียบร้อย`);
   loadOrders();
-}
-
-async function saveCost(rowId, costVal){
-  if(costVal != null){
-    const c = await sb.from('po_costs').upsert({ id: rowId, unit_cost: costVal });
-    if(c.error) console.error('cost save error:', c.error);
-  } else {
-    await sb.from('po_costs').delete().eq('id', rowId);
-  }
 }
 
 window.delOrder = async function(id){
@@ -833,7 +806,6 @@ function isEtaSoon(d){ if(!d) return false; const diff=(new Date(d)-new Date())/
 function sortValue(o, key){
   switch(key){
     case 'quantity':  return o.quantity != null ? o.quantity : -Infinity;
-    case 'unit_cost': return o.unit_cost != null ? o.unit_cost : -Infinity;
     case 'eta':       return o.eta ? new Date(o.eta).getTime() : Infinity;
     case 'status':    return STATUS_ORDER[o.status] || 99;
     default:          return (o[key] || '').toString().toLowerCase();
