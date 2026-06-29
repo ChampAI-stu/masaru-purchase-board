@@ -329,7 +329,6 @@
         <option value="อยู่ระหว่างขนส่ง">อยู่ระหว่างขนส่ง</option>
         <option value="รอนำส่งเข้าคลัง">รอนำส่งเข้าคลัง</option>
         <option value="เข้าคลังแล้ว">เข้าคลังแล้ว</option>
-        <option value="ยกเลิก">ยกเลิก</option>
         <option value="__soon__">🔥 ใกล้เข้า (≤7 วัน)</option>
         <option value="__over__">⚠️ เลยกำหนด</option>
       </select>
@@ -438,7 +437,6 @@
           <option value="อยู่ระหว่างขนส่ง">อยู่ระหว่างขนส่ง</option>
           <option value="รอนำส่งเข้าคลัง">รอนำส่งเข้าคลัง</option>
           <option value="เข้าคลังแล้ว">เข้าคลังแล้ว</option>
-          <option value="ยกเลิก">ยกเลิก</option>
         </select>
       </div>
       <div class="m-field">
@@ -525,7 +523,7 @@ let pendingFlash = new Set();   // id แถวที่เพิ่งเปล
 let sortState = { key: null, dir: 'asc' };   // การเรียงคอลัมน์
 let currentPage = 1;
 const PAGE_SIZE = 50;
-const STATUS_ORDER = { 'อยู่ระหว่างสั่งซื้อ':1, 'อยู่ระหว่างขนส่ง':2, 'รอนำส่งเข้าคลัง':3, 'เข้าคลังแล้ว':4, 'ยกเลิก':9 };
+const STATUS_ORDER = { 'อยู่ระหว่างสั่งซื้อ':1, 'อยู่ระหว่างขนส่ง':2, 'รอนำส่งเข้าคลัง':3, 'เข้าคลังแล้ว':4 };
 
 // ====================================================================
 // 📢 ประกาศ — เก็บใน Supabase ฝ่ายจัดซื้อแก้จากหน้าเว็บได้
@@ -536,10 +534,10 @@ let announceData = null;
 
 const STATUS_CLASS = {
   'อยู่ระหว่างสั่งซื้อ':'b-wait','อยู่ระหว่างขนส่ง':'b-transit',
-  'รอนำส่งเข้าคลัง':'b-ordered','เข้าคลังแล้ว':'b-arrived','ยกเลิก':'b-cancel'
+  'รอนำส่งเข้าคลัง':'b-ordered','เข้าคลังแล้ว':'b-arrived'
 };
 const STATUS_ICON = {
-  'อยู่ระหว่างสั่งซื้อ':'🛒','อยู่ระหว่างขนส่ง':'🚚','รอนำส่งเข้าคลัง':'📥','เข้าคลังแล้ว':'📦','ยกเลิก':'✕'
+  'อยู่ระหว่างสั่งซื้อ':'🛒','อยู่ระหว่างขนส่ง':'🚚','รอนำส่งเข้าคลัง':'📥','เข้าคลังแล้ว':'📦'
 };
 
 // ===== ELEMENTS =====
@@ -877,7 +875,7 @@ function renderSummary(){
   // เลยกำหนด
   $('sumOver').textContent = allOrders.filter(o=>etaState(o.eta,o.status)==='over').length;
   // ของเข้าถัดไป (ETA ใกล้สุดที่ยังไม่เข้าคลัง)
-  const upcoming = allOrders.filter(o=>o.eta && o.status!=='เข้าคลังแล้ว' && o.status!=='ยกเลิก')
+  const upcoming = allOrders.filter(o=>o.eta && o.status!=='เข้าคลังแล้ว')
     .sort((a,b)=>new Date(a.eta)-new Date(b.eta));
   if(upcoming.length){
     $('sumEta').textContent = fmtDate(upcoming[0].eta);
@@ -1043,8 +1041,7 @@ const STATUS_MAP = {
   // สถานะจริงจาก ERP (ยืนยันแล้ว)
   'รออนุมัติ':'อยู่ระหว่างสั่งซื้อ',
   'อนุมัติเรียบร้อย':'อยู่ระหว่างสั่งซื้อ',
-  'สำเร็จ':'เข้าคลังแล้ว',
-  'โมฆะ':'ยกเลิก'
+  'สำเร็จ':'เข้าคลังแล้ว'
 };
 function mapStatus(s){
   s = String(s||'').trim();
@@ -1131,9 +1128,8 @@ function showImportPreview(){
   $('importConfirm').disabled = false; $('importConfirm').style.opacity = '1';
 }
 
-// คำนวณสถานะจากค่าที่รวมแล้ว: โมฆะ→ยกเลิก / เข้าครบ→เข้าคลังแล้ว / บางส่วน→คงเดิม
+// คำนวณสถานะจากค่าที่รวมแล้ว: เข้าครบ→เข้าคลังแล้ว / บางส่วน→คงเดิม
 function computeStatusMerged(erp, ordered, received, existingStatus){
-  if(erp === 'ยกเลิก') return 'ยกเลิก';
   if(received != null && ordered > 0 && received >= ordered) return 'เข้าคลังแล้ว';
   if(existingStatus != null) return existingStatus;                 // คงสถานะเดิม
   if(received != null && received > 0) return 'รอนำส่งเข้าคลัง';
@@ -1218,7 +1214,7 @@ function updateSortArrows(){
 }
 // คืนค่าสถานะ ETA: 'over'=เลยกำหนด, 'soon'=ใกล้เข้า(<=7วัน), ''=ปกติ
 function etaState(d, status){
-  if(!d || status==='เข้าคลังแล้ว' || status==='ยกเลิก') return '';
+  if(!d || status==='เข้าคลังแล้ว') return '';
   const today=new Date(); today.setHours(0,0,0,0);
   const eta=new Date(d); eta.setHours(0,0,0,0);
   const diff=(eta-today)/(1000*60*60*24);
