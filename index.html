@@ -974,11 +974,13 @@ async function confirmImport(){
   const email = (await sb.auth.getUser()).data.user?.email || 'purchase';
   const now = new Date().toISOString();
   const payload = importRecords.map(r => ({ ...r, created_by: email, updated_at: now }));
-  const { error } = await sb.from('purchase_orders').insert(payload);
+  // upsert: ถ้า PO+SKU ซ้ำ → อัพเดทของเดิม / ถ้าใหม่ → เพิ่ม (ไม่สร้างแถวซ้ำ)
+  const { error } = await sb.from('purchase_orders')
+    .upsert(payload, { onConflict: 'po_number,sku' });
   $('importConfirm').disabled = false; $('importConfirm').textContent = 'ยืนยันนำเข้า';
   if(error){ toast('นำเข้าไม่สำเร็จ: '+error.message); return; }
   $('importBg').style.display = 'none';
-  toast(`นำเข้า ${payload.length} รายการเรียบร้อย`);
+  toast(`นำเข้า/อัพเดท ${payload.length} รายการเรียบร้อย`);
   loadOrders();
 }
 
