@@ -1094,10 +1094,11 @@ function handleImportFile(e){
         const sku = String(r[ci.sku]||'').trim();
         if(!sku) continue;
         const recvRaw = ci.recv>=0 ? r[ci.recv] : '';
+        const qtyRaw = ci.qty>=0 ? r[ci.qty] : '';
         importRecords.push({
           po_number: ci.po>=0 ? (String(r[ci.po]||'').trim()||null) : null,
           sku,
-          quantity: ci.qty>=0 ? (parseInt(r[ci.qty])||0) : 0,
+          quantity: (qtyRaw==='' || qtyRaw==null) ? null : (parseInt(qtyRaw)||0),
           received_qty: (recvRaw==='' || recvRaw==null) ? null : (parseInt(recvRaw)||0),
           eta: ci.eta>=0 ? toISODate(r[ci.eta]) : null,
           note: ci.note>=0 ? (String(r[ci.note]||'').trim()||null) : null,
@@ -1116,7 +1117,7 @@ function handleImportFile(e){
 
 function showImportPreview(){
   $('importCount').textContent = importRecords.length;
-  const provisional = r => computeImportStatus(r, {});   // สถานะคาดการณ์ (จริงๆ คงเดิมถ้ามีของเก่า)
+  const provisional = r => computeStatusMerged(r._erp, r.quantity||0, r.received_qty, null);
   $('importPreviewBody').innerHTML = importRecords.slice(0,50).map(r => `<tr>
     <td style="padding:7px 10px">${esc(r.po_number||'—')}</td>
     <td style="padding:7px 10px">${esc(r.sku)}</td>
@@ -1130,18 +1131,13 @@ function showImportPreview(){
   $('importConfirm').disabled = false; $('importConfirm').style.opacity = '1';
 }
 
-// คำนวณสถานะตอนนำเข้า: โมฆะ→ยกเลิก / เข้าครบ→เข้าคลังแล้ว / บางส่วน→คงสถานะเดิม
-function computeImportStatus(rec, existMap){
-  if(rec._erp === 'ยกเลิก') return 'ยกเลิก';
-  const ordered = rec.quantity || 0;
-  const recv = rec.received_qty;
-  if(recv != null && ordered > 0 && recv >= ordered) return 'เข้าคลังแล้ว';   // เข้าครบ
-  // เข้าบางส่วน/ยังไม่เข้า
-  const key = (rec.po_number||'') + '||' + rec.sku;
-  if(existMap[key] != null) return existMap[key];                              // คงสถานะเดิม
-  // แถวใหม่ (ไม่มีของเดิม)
-  if(recv != null && recv > 0) return 'อยู่ระหว่างขนส่ง';
-  return rec._erp === 'เข้าคลังแล้ว' ? 'อยู่ระหว่างขนส่ง' : rec._erp;
+// คำนวณสถานะจากค่าที่รวมแล้ว: โมฆะ→ยกเลิก / เข้าครบ→เข้าคลังแล้ว / บางส่วน→คงเดิม
+function computeStatusMerged(erp, ordered, received, existingStatus){
+  if(erp === 'ยกเลิก') return 'ยกเลิก';
+  if(received != null && ordered > 0 && received >= ordered) return 'เข้าคลังแล้ว';
+  if(existingStatus != null) return existingStatus;                 // คงสถานะเดิม
+  if(received != null && received > 0) return 'อยู่ระหว่างขนส่ง';
+  return erp === 'เข้าคลังแล้ว' ? 'อยู่ระหว่างขนส่ง' : erp;
 }
 
 async function confirmImport(){
@@ -1149,16 +1145,29 @@ async function confirmImport(){
   $('importConfirm').disabled = true; $('importConfirm').textContent = 'กำลังนำเข้า...';
   const email = (await sb.auth.getUser()).data.user?.email || 'purchase';
   const now = new Date().toISOString();
-  // ดึงสถานะเดิมของทุกแถว ไว้ตัดสินใจกรณีเข้าบางส่วน (คงสถานะเดิม)
-  const { data: existing } = await sb.from('purchase_orders').select('po_number,sku,status');
+  // ดึงข้อมูลเดิมทุกแถว ไว้ "รวม" กับไฟล์ (ช่องว่างในไฟล์ = คงค่าเดิม)
+  const { data: existing } = await sb.from('purchase_orders')
+    .select('po_number,sku,quantity,received_qty,eta,status,note');
   const existMap = {};
-  (existing || []).forEach(o => { existMap[(o.po_number||'')+'||'+o.sku] = o.status; });
+  (existing || []).forEach(o => { existMap[(o.po_number||'')+'||'+o.sku] = o; });
 
   const payload = importRecords.map(r => {
-    const { _erp, ...rest } = r;
-    return { ...rest, status: computeImportStatus(r, existMap), created_by: email, updated_at: now };
+    const ex = existMap[(r.po_number||'')+'||'+r.sku];   // แถวเดิม (ถ้ามี)
+    const ordered  = r.quantity     != null ? r.quantity     : (ex ? ex.quantity     : 0);
+    const received = r.received_qty != null ? r.received_qty : (ex ? ex.received_qty : null);
+    return {
+      po_number: r.po_number,
+      sku: r.sku,
+      quantity: ordered,
+      received_qty: received,
+      eta:  r.eta  != null ? r.eta  : (ex ? ex.eta  : null),
+      note: r.note != null ? r.note : (ex ? ex.note : null),
+      status: computeStatusMerged(r._erp, ordered, received, ex ? ex.status : null),
+      created_by: email,
+      updated_at: now
+    };
   });
-  // upsert: ถ้า PO+SKU ซ้ำ → อัพเดทของเดิม / ถ้าใหม่ → เพิ่ม (ไม่สร้างแถวซ้ำ)
+  // upsert: PO+SKU ซ้ำ → อัพเดท (เฉพาะช่องที่มีค่าในไฟล์) / ใหม่ → เพิ่ม
   const { error } = await sb.from('purchase_orders')
     .upsert(payload, { onConflict: 'po_number,sku' });
   $('importConfirm').disabled = false; $('importConfirm').textContent = 'ยืนยันนำเข้า';
