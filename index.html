@@ -844,8 +844,13 @@ window.goToPage = function(p){
 function renderSummary(){
   const sumQty = arr => arr.reduce((s,o)=>s+(o.quantity||0),0);
   // PO ทั้งหมด + ชิ้นรวม
-  $('sumTotal').textContent = allOrders.length;
-  $('sumTotalQty').textContent = 'รวม ' + sumQty(allOrders).toLocaleString() + ' ชิ้น';
+  // นับเลข PO ที่ไม่ซ้ำ (แถวที่ไม่มีเลข PO นับเป็น 1 ใบต่อแถว)
+  const poSet = new Set();
+  let noPoCount = 0;
+  allOrders.forEach(o => { o.po_number ? poSet.add(o.po_number) : noPoCount++; });
+  const poCount = poSet.size + noPoCount;
+  $('sumTotal').textContent = poCount.toLocaleString();
+  $('sumTotalQty').textContent = `${allOrders.length.toLocaleString()} SKU · ${sumQty(allOrders).toLocaleString()} ชิ้น`;
   // รอยืนยัน
   $('sumWait').textContent = allOrders.filter(o=>o.status==='รอยืนยัน').length;
   // อยู่ระหว่างขนส่ง + ชิ้น
