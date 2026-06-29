@@ -96,10 +96,8 @@
   tbody tr:hover{background:#F8FAFC}
   tbody td{padding:13px 14px;vertical-align:middle}
   .pname{font-weight:600}
-  .sku{font-family:'Courier New',monospace;font-size:13px;font-weight:600;color:var(--text);background:#F1F5F9;
-    padding:3px 9px;border-radius:5px;border:1px solid var(--line);white-space:nowrap}
-  .po-tag{font-family:'Courier New',monospace;font-size:13px;font-weight:600;color:var(--blue);
-    background:var(--blue-bg);padding:3px 9px;border-radius:5px;border:1px solid #378ADD44;white-space:nowrap}
+  .sku{font-size:14px;color:var(--text);white-space:nowrap}
+  .po-tag{font-size:14px;font-weight:600;color:var(--blue);white-space:nowrap}
   .eta-soon{color:var(--amber);font-weight:600}
   /* ETA badge ใกล้เข้า / เลยกำหนด */
   .eta-tag{display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;
@@ -150,6 +148,21 @@
   .m-field textarea{resize:vertical;min-height:60px}
   .m-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .modal-foot{display:flex;gap:10px;margin-top:22px}
+  /* รายการ SKU หลายบรรทัด */
+  .sku-section-label{font-size:14px;font-weight:600;color:var(--navy);margin:20px 0 10px;
+    padding-top:16px;border-top:1px solid var(--line)}
+  .sku-lines-head{display:grid;grid-template-columns:1fr 80px 110px 30px;gap:8px;
+    font-size:11px;color:var(--muted);margin-bottom:6px;padding:0 2px}
+  .sku-line{display:grid;grid-template-columns:1fr 80px 110px 30px;gap:8px;margin-bottom:8px;
+    align-items:center}
+  .sku-line input{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px}
+  .sku-line input:focus{outline:none;border-color:var(--navy-light);box-shadow:0 0 0 3px #2E75B622}
+  .sku-line-del{background:var(--red-bg);color:var(--red);border:none;border-radius:7px;
+    width:30px;height:36px;font-size:16px;cursor:pointer;line-height:1}
+  .sku-line-del:hover{background:#f8caca}
+  .add-sku-btn{width:100%;background:#fff;border:1px dashed var(--navy-light);color:var(--navy);
+    padding:10px;border-radius:9px;font-size:14px;font-weight:500;margin-top:4px}
+  .add-sku-btn:hover{background:var(--blue-bg)}
   .btn-save{flex:1;background:var(--navy);color:#fff;border:none;padding:12px;border-radius:9px;
     font-weight:600;font-size:14px}
   .btn-save:hover{background:#162a4d}
@@ -283,7 +296,6 @@
               <th>#</th>
               <th class="sortable" data-sort="sku">SKU<span class="sort-ind"></span></th>
               <th class="sortable" data-sort="po_number">เลขที่ PO<span class="sort-ind"></span></th>
-              <th class="sortable" data-sort="product_name">ชื่อสินค้า<span class="sort-ind"></span></th>
               <th class="sortable" data-sort="quantity">จำนวน<span class="sort-ind"></span></th>
               <th id="costHead" class="sortable" data-sort="unit_cost" style="display:none">ต้นทุน/หน่วย<span class="sort-ind"></span></th>
               <th class="sortable" data-sort="eta">ETA<span class="sort-ind"></span></th>
@@ -367,24 +379,15 @@
       <label>เลขที่ PO</label>
       <input type="text" id="mPO" placeholder="เช่น 1001">
     </div>
-    <div class="m-field">
-      <label>ชื่อสินค้า *</label>
-      <input type="text" id="mName" placeholder="เช่น สว่านไร้สาย MCG-450N">
-    </div>
     <div class="m-row">
       <div class="m-field">
-        <label>SKU / รหัสสินค้า</label>
-        <input type="text" id="mSku" placeholder="MCG-450N">
-      </div>
-      <div class="m-field">
-        <label>จำนวนที่สั่ง</label>
-        <input type="number" id="mQty" placeholder="0" min="0">
-      </div>
-    </div>
-    <div class="m-row">
-      <div class="m-field">
-        <label>ต้นทุน/หน่วย (บาท) 🔒</label>
-        <input type="number" id="mCost" placeholder="0.00" min="0" step="0.01">
+        <label>สถานะ PO</label>
+        <select id="mStatus">
+          <option value="รอยืนยัน">รอยืนยัน</option>
+          <option value="สั่งแล้ว">สั่งแล้ว</option>
+          <option value="อยู่ระหว่างขนส่ง">อยู่ระหว่างขนส่ง</option>
+          <option value="เข้าคลังแล้ว">เข้าคลังแล้ว</option>
+        </select>
       </div>
       <div class="m-field">
         <label>ETA (วันที่เข้า)</label>
@@ -392,18 +395,19 @@
       </div>
     </div>
     <div class="m-field">
-      <label>สถานะ PO</label>
-      <select id="mStatus">
-        <option value="รอยืนยัน">รอยืนยัน</option>
-        <option value="สั่งแล้ว">สั่งแล้ว</option>
-        <option value="อยู่ระหว่างขนส่ง">อยู่ระหว่างขนส่ง</option>
-        <option value="เข้าคลังแล้ว">เข้าคลังแล้ว</option>
-      </select>
-    </div>
-    <div class="m-field">
       <label>หมายเหตุ</label>
-      <textarea id="mNote" placeholder="ข้อมูลเพิ่มเติม..."></textarea>
+      <textarea id="mNote" placeholder="ข้อมูลเพิ่มเติม (ใช้ร่วมทั้ง PO)..."></textarea>
     </div>
+
+    <div class="sku-section-label">รายการสินค้าใน PO นี้</div>
+    <div class="sku-lines-head">
+      <span>SKU / รหัสสินค้า</span>
+      <span>จำนวน</span>
+      <span>ต้นทุน/หน่วย 🔒</span>
+      <span></span>
+    </div>
+    <div id="skuLines"></div>
+    <button type="button" class="add-sku-btn" id="addSkuLineBtn">+ เพิ่ม SKU อีกตัว</button>
     <div class="modal-foot">
       <button class="btn-cancel" id="modalCancel">ยกเลิก</button>
       <button class="btn-save" id="modalSave">บันทึก</button>
@@ -597,8 +601,8 @@ function render(){
   const q = $('searchInput').value.toLowerCase().trim();
   const sf = $('statusFilter').value;
   let rows = allOrders.filter(o => {
-    const matchQ = !q || (o.product_name||'').toLowerCase().includes(q)
-      || (o.sku||'').toLowerCase().includes(q) || (o.note||'').toLowerCase().includes(q)
+    const matchQ = !q || (o.sku||'').toLowerCase().includes(q)
+      || (o.note||'').toLowerCase().includes(q)
       || (o.po_number||'').toLowerCase().includes(q);
     const matchS = !sf || o.status === sf;
     return matchQ && matchS;
@@ -608,7 +612,7 @@ function render(){
   renderSummary();
   const tb = $('tableBody');
   if(rows.length === 0){
-    const colspan = currentRole==='purchase' ? 10 : 8;
+    const colspan = currentRole==='purchase' ? 9 : 7;
     tb.innerHTML = `<tr><td colspan="${colspan}"><div class="empty">
       <div class="big">📋</div>ยังไม่มีรายการ${q||sf?'ที่ตรงกับการค้นหา':''}</div></td></tr>`;
     return;
@@ -635,7 +639,6 @@ function render(){
       <td style="color:var(--muted);font-size:12px">${String(i+1).padStart(3,'0')}</td>
       <td>${o.sku?`<span class="sku">${esc(o.sku)}</span>`:'<span style="color:var(--muted)">—</span>'}</td>
       <td>${o.po_number?`<span class="po-tag">${esc(o.po_number)}</span>`:'<span style="color:var(--muted)">—</span>'}</td>
-      <td><span class="pname">${esc(o.product_name)}</span></td>
       <td>${o.quantity?o.quantity.toLocaleString()+' pcs':'—'}</td>
       ${costCell}
       <td>${etaCell}</td>
@@ -681,7 +684,7 @@ function renderSummary(){
     .sort((a,b)=>new Date(a.eta)-new Date(b.eta));
   if(upcoming.length){
     $('sumEta').textContent = fmtDate(upcoming[0].eta);
-    $('sumEtaName').textContent = upcoming[0].sku || upcoming[0].product_name;
+    $('sumEtaName').textContent = upcoming[0].sku || ('PO ' + (upcoming[0].po_number||''));
   } else { $('sumEta').textContent='—'; $('sumEtaName').textContent='—'; }
 }
 
@@ -690,6 +693,7 @@ $('addBtn').addEventListener('click', openAdd);
 $('modalClose').addEventListener('click', closeModal);
 $('modalCancel').addEventListener('click', closeModal);
 $('modalSave').addEventListener('click', saveOrder);
+$('addSkuLineBtn').addEventListener('click', () => addSkuLine());
 $('modalBg').addEventListener('click', e => { if(e.target===$('modalBg')) closeModal(); });
 $('searchInput').addEventListener('input', render);
 $('statusFilter').addEventListener('change', render);
@@ -707,69 +711,106 @@ document.querySelectorAll('th[data-sort]').forEach(th => {
   });
 });
 
+// ===== จัดการรายการ SKU ในฟอร์ม =====
+function addSkuLine(vals = {}, allowDelete = true){
+  const line = document.createElement('div');
+  line.className = 'sku-line';
+  line.innerHTML = `
+    <input type="text" class="sl-sku" placeholder="MCG-450N" value="${vals.sku ? esc(vals.sku) : ''}">
+    <input type="number" class="sl-qty" placeholder="0" min="0" value="${vals.qty != null ? vals.qty : ''}">
+    <input type="number" class="sl-cost" placeholder="0.00" min="0" step="0.01" value="${vals.cost != null ? vals.cost : ''}">
+    <button type="button" class="sku-line-del" title="ลบ">&times;</button>`;
+  line.querySelector('.sku-line-del').addEventListener('click', () => {
+    const lines = $('skuLines').querySelectorAll('.sku-line');
+    if(lines.length > 1) line.remove();
+    else toast('ต้องมีอย่างน้อย 1 SKU');
+  });
+  $('skuLines').appendChild(line);
+}
+
 function openAdd(){
   $('modalTitle').textContent = 'เพิ่ม PO ใหม่';
-  $('editId').value=''; $('mPO').value=''; $('mName').value=''; $('mSku').value='';
-  $('mQty').value=''; $('mCost').value=''; $('mEta').value='';
+  $('editId').value=''; $('mPO').value=''; $('mEta').value='';
   $('mStatus').value='รอยืนยัน'; $('mNote').value='';
+  $('skuLines').innerHTML='';
+  addSkuLine();                          // เริ่มด้วย 1 บรรทัดว่าง
+  $('addSkuLineBtn').style.display='block';
   $('modalBg').style.display='flex';
 }
 
 window.openEdit = function(id){
   const o = allOrders.find(x=>x.id===id); if(!o) return;
-  $('modalTitle').textContent = 'แก้ไข PO';
-  $('editId').value=o.id; $('mPO').value=o.po_number||''; $('mName').value=o.product_name||'';
-  $('mSku').value=o.sku||''; $('mQty').value=o.quantity||'';
-  $('mCost').value=(o.unit_cost!=null)?o.unit_cost:''; $('mEta').value=o.eta||'';
-  $('mStatus').value=o.status||'รอยืนยัน'; $('mNote').value=o.note||'';
+  $('modalTitle').textContent = 'แก้ไขรายการ';
+  $('editId').value=o.id; $('mPO').value=o.po_number||'';
+  $('mEta').value=o.eta||''; $('mStatus').value=o.status||'รอยืนยัน'; $('mNote').value=o.note||'';
+  $('skuLines').innerHTML='';
+  addSkuLine({ sku:o.sku, qty:o.quantity, cost:(o.unit_cost!=null)?o.unit_cost:null });
+  $('addSkuLineBtn').style.display='none';   // แก้ไขทีละรายการ ไม่เพิ่มหลาย SKU
   $('modalBg').style.display='flex';
 };
 
 function closeModal(){ $('modalBg').style.display='none'; }
 
+function collectSkuLines(){
+  return [...$('skuLines').querySelectorAll('.sku-line')].map(l => ({
+    sku: l.querySelector('.sl-sku').value.trim(),
+    qty: parseInt(l.querySelector('.sl-qty').value) || 0,
+    cost: l.querySelector('.sl-cost').value ? parseFloat(l.querySelector('.sl-cost').value) : null
+  })).filter(x => x.sku);   // เอาเฉพาะบรรทัดที่มี SKU
+}
+
 async function saveOrder(){
-  const name = $('mName').value.trim();
-  if(!name){ toast('กรุณากรอกชื่อสินค้า'); return; }
-  const payload = {
+  const shared = {
     po_number: $('mPO').value.trim() || null,
-    product_name: name,
-    sku: $('mSku').value.trim() || null,
-    quantity: parseInt($('mQty').value) || 0,
     eta: $('mEta').value || null,
     status: $('mStatus').value,
     note: $('mNote').value.trim() || null,
     updated_at: new Date().toISOString()
   };
-  const costVal = $('mCost').value ? parseFloat($('mCost').value) : null;
+  const lines = collectSkuLines();
+  if(lines.length === 0){ toast('กรุณากรอก SKU อย่างน้อย 1 ตัว'); return; }
+
   const id = $('editId').value;
   $('modalSave').disabled = true; $('modalSave').textContent='กำลังบันทึก...';
-  let error, rowId = id;
+  let error;
+
   if(id){
-    ({ error } = await sb.from('purchase_orders').update(payload).eq('id', id));
+    // แก้ไข: อัพเดทแถวเดียว (SKU แรก)
+    const ln = lines[0];
+    ({ error } = await sb.from('purchase_orders')
+      .update({ ...shared, sku: ln.sku, quantity: ln.qty }).eq('id', id));
+    if(!error) await saveCost(id, ln.cost);
   } else {
-    payload.created_by = (await sb.auth.getUser()).data.user?.email || 'purchase';
-    const res = await sb.from('purchase_orders').insert(payload).select('id').single();
-    error = res.error; rowId = res.data?.id;
-  }
-  // บันทึกต้นทุนลงตารางแยก po_costs (เฉพาะฝ่ายจัดซื้อ — RLS ล็อกไว้)
-  if(!error && rowId){
-    if(costVal != null){
-      const c = await sb.from('po_costs').upsert({ id: rowId, unit_cost: costVal });
-      if(c.error) console.error('cost save error:', c.error);
-    } else {
-      await sb.from('po_costs').delete().eq('id', rowId);
+    // เพิ่มใหม่: สร้างหลายแถว แถวละ SKU (ใช้ header PO ร่วมกัน)
+    const email = (await sb.auth.getUser()).data.user?.email || 'purchase';
+    for(const ln of lines){
+      const res = await sb.from('purchase_orders')
+        .insert({ ...shared, sku: ln.sku, quantity: ln.qty, created_by: email })
+        .select('id').single();
+      if(res.error){ error = res.error; break; }
+      await saveCost(res.data.id, ln.cost);
     }
   }
+
   $('modalSave').disabled = false; $('modalSave').textContent='บันทึก';
   if(error){ toast('เกิดข้อผิดพลาด: '+error.message); return; }
   closeModal();
-  toast(id ? 'แก้ไขเรียบร้อย' : 'เพิ่ม PO เรียบร้อย');
+  toast(id ? 'แก้ไขเรียบร้อย' : `เพิ่ม ${lines.length} รายการเรียบร้อย`);
   loadOrders();
+}
+
+async function saveCost(rowId, costVal){
+  if(costVal != null){
+    const c = await sb.from('po_costs').upsert({ id: rowId, unit_cost: costVal });
+    if(c.error) console.error('cost save error:', c.error);
+  } else {
+    await sb.from('po_costs').delete().eq('id', rowId);
+  }
 }
 
 window.delOrder = async function(id){
   const o = allOrders.find(x=>x.id===id);
-  if(!confirm(`ต้องการลบ "${o?.product_name||'รายการนี้'}" ใช่หรือไม่?`)) return;
+  if(!confirm(`ต้องการลบ "${o?.sku||'รายการนี้'}" ใช่หรือไม่?`)) return;
   const { error } = await sb.from('purchase_orders').delete().eq('id', id);
   if(error){ toast('ลบไม่สำเร็จ: '+error.message); return; }
   toast('ลบเรียบร้อย');
