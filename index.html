@@ -276,7 +276,7 @@
     <div class="toolbar">
       <div class="search-wrap">
         <span class="search-ico">🔍</span>
-        <input type="text" id="searchInput" placeholder="ค้นหา SKU, เลข PO, ชื่อสินค้า, หมายเหตุ...">
+        <input type="text" id="searchInput" placeholder="ค้นหา SKU, เลข PO, หมายเหตุ...">
       </div>
       <select class="filter-sel" id="statusFilter">
         <option value="">สถานะทั้งหมด</option>
@@ -300,7 +300,7 @@
               <th class="sortable" data-sort="po_number">เลขที่ PO<span class="sort-ind"></span></th>
               <th class="sortable" data-sort="quantity">จำนวน<span class="sort-ind"></span></th>
               <th id="costHead" class="sortable" data-sort="unit_cost" style="display:none">ต้นทุน/หน่วย<span class="sort-ind"></span></th>
-              <th class="sortable" data-sort="eta">ETA<span class="sort-ind"></span></th>
+              <th class="sortable" data-sort="eta">วันที่เข้าคลัง<span class="sort-ind"></span></th>
               <th class="sortable" data-sort="status">สถานะ PO<span class="sort-ind"></span></th>
               <th>หมายเหตุ</th>
               <th id="actionsHead" style="display:none">จัดการ</th>
@@ -392,7 +392,7 @@
         </select>
       </div>
       <div class="m-field">
-        <label>ETA (วันที่เข้า)</label>
+        <label>วันที่เข้าคลัง</label>
         <input type="date" id="mEta">
       </div>
     </div>
