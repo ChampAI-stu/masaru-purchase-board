@@ -347,6 +347,7 @@
               <th class="sortable" data-sort="sku">SKU<span class="sort-ind"></span></th>
               <th class="sortable" data-sort="po_number">เลขที่ PO<span class="sort-ind"></span></th>
               <th class="sortable" data-sort="quantity">จำนวน<span class="sort-ind"></span></th>
+              <th class="sortable" data-sort="received_qty">จำนวนที่เข้า<span class="sort-ind"></span></th>
               <th class="sortable" data-sort="eta">วันที่เข้าคลัง<span class="sort-ind"></span></th>
               <th class="sortable" data-sort="status">สถานะ PO<span class="sort-ind"></span></th>
               <th>หมายเหตุ</th>
@@ -494,7 +495,7 @@
       <div style="max-height:240px;overflow:auto;border:1px solid var(--line);border-radius:9px">
         <table style="font-size:12px"><thead><tr>
           <th style="padding:8px 10px">เลขที่ PO</th><th style="padding:8px 10px">SKU</th>
-          <th style="padding:8px 10px">จำนวน</th><th style="padding:8px 10px">วันที่เข้าคลัง</th>
+          <th style="padding:8px 10px">จำนวน</th><th style="padding:8px 10px">เข้าแล้ว</th><th style="padding:8px 10px">วันที่เข้าคลัง</th>
           <th style="padding:8px 10px">สถานะ</th><th style="padding:8px 10px">หมายเหตุ</th>
         </tr></thead><tbody id="importPreviewBody"></tbody></table>
       </div>
@@ -756,7 +757,7 @@ function render(){
   renderSummary();
   const tb = $('tableBody');
   if(rows.length === 0){
-    const colspan = currentRole==='purchase' ? 8 : 7;
+    const colspan = currentRole==='purchase' ? 9 : 8;
     tb.innerHTML = `<tr><td colspan="${colspan}"><div class="empty">
       <div class="big">📋</div>ยังไม่มีรายการ${q||sf?'ที่ตรงกับการค้นหา':''}</div></td></tr>`;
     renderPagination(0);
@@ -782,11 +783,22 @@ function render(){
                 : est==='soon' ? '<span class="eta-tag eta-tag-soon">🔥 ใกล้เข้า</span>' : '';
       etaCell = `<span class="${est==='soon'?'eta-soon':''}">${fmtDate(o.eta)}</span>${tag}`;
     }
+    let recvCell;
+    const recv = o.received_qty;
+    if(recv == null){
+      recvCell = '<span style="color:var(--muted)">—</span>';
+    } else {
+      const ordered = o.quantity || 0;
+      const style = (ordered>0 && recv>=ordered) ? 'color:var(--green);font-weight:600'
+                  : (recv>0 ? 'color:var(--amber);font-weight:600' : 'color:var(--muted)');
+      recvCell = `<span style="${style}">${recv.toLocaleString()}</span>`;
+    }
     return `<tr data-id="${o.id}" class="${rowClass}">
       <td style="color:var(--muted);font-size:12px">${String(startIndex + i + 1).padStart(3,'0')}</td>
       <td>${o.sku?`<span class="sku">${esc(o.sku)}</span>`:'<span style="color:var(--muted)">—</span>'}</td>
       <td>${o.po_number?`<span class="po-tag">${esc(o.po_number)}</span>`:'<span style="color:var(--muted)">—</span>'}</td>
       <td>${o.quantity?o.quantity.toLocaleString()+' pcs':'—'}</td>
+      <td>${recvCell}</td>
       <td>${etaCell}</td>
       <td><span class="badge ${STATUS_CLASS[o.status]||''}">${STATUS_ICON[o.status]||''} ${esc(o.status)}</span></td>
       <td><span class="note">${o.note?esc(o.note):'—'}</span></td>
@@ -1010,11 +1022,11 @@ $('importConfirm').addEventListener('click', confirmImport);
 
 function downloadTemplate(){
   const ws = XLSX.utils.aoa_to_sheet([
-    ['เลขที่ PO','SKU','จำนวน','วันที่เข้าคลัง','สถานะ','หมายเหตุ'],
-    ['1001','MCG-450N',200,'2026-07-15','สั่งแล้ว','ตัวอย่าง — ลบแถวนี้ได้'],
-    ['1001','SCG-630N',150,'2026-07-15','สั่งแล้ว',''],
+    ['เลขที่ PO','SKU','จำนวน','จำนวนที่เข้า','วันที่เข้าคลัง','สถานะ','หมายเหตุ'],
+    ['1001','MCG-450N',200,0,'2026-07-15','สั่งแล้ว','ตัวอย่าง — ลบแถวนี้ได้'],
+    ['1001','SCG-630N',150,150,'2026-07-15','สั่งแล้ว',''],
   ]);
-  ws['!cols'] = [{wch:12},{wch:16},{wch:10},{wch:16},{wch:18},{wch:24}];
+  ws['!cols'] = [{wch:12},{wch:16},{wch:10},{wch:12},{wch:16},{wch:18},{wch:24}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'PO');
   XLSX.writeFile(wb, 'template_po_masaru.xlsx');
@@ -1070,6 +1082,7 @@ function handleImportFile(e){
         po:     pick(['รหัสใบจัดซื้อสินค้า','เลขที่ PO'], ['ใบจัดซื้อ']),
         sku:    pick(['รหัสสินค้า','SKU'], ['SKU']),
         qty:    pick(['จำนวนสินค้าทั้งหมดที่จัดซื้อ','จำนวน'], ['จำนวนการจัดซื้อสินค้า']),
+        recv:   pick(['จำนวนสินค้าที่ได้จริง','จำนวนที่เข้า'], ['ได้จริง','รับเข้า']),
         eta:    pick(['เวลาที่คาดว่าจะส่งถึง','วันที่เข้าคลัง'], ['เข้าคลัง','คาดว่าจะส่ง','ETA']),
         status: pick(['สถานะใบจัดซื้อสินค้า','สถานะ PO'], ['สถานะใบจัดซื้อ']),
         note:   pick(['หมายเหตุ'], [])
@@ -1080,13 +1093,15 @@ function handleImportFile(e){
         const r = rows[i];
         const sku = String(r[ci.sku]||'').trim();
         if(!sku) continue;
+        const recvRaw = ci.recv>=0 ? r[ci.recv] : '';
         importRecords.push({
           po_number: ci.po>=0 ? (String(r[ci.po]||'').trim()||null) : null,
           sku,
           quantity: ci.qty>=0 ? (parseInt(r[ci.qty])||0) : 0,
+          received_qty: (recvRaw==='' || recvRaw==null) ? null : (parseInt(recvRaw)||0),
           eta: ci.eta>=0 ? toISODate(r[ci.eta]) : null,
-          status: ci.status>=0 ? mapStatus(r[ci.status]) : 'รอยืนยัน',
-          note: ci.note>=0 ? (String(r[ci.note]||'').trim()||null) : null
+          note: ci.note>=0 ? (String(r[ci.note]||'').trim()||null) : null,
+          _erp: ci.status>=0 ? mapStatus(r[ci.status]) : 'รอยืนยัน'   // สถานะ ERP (ไว้คำนวณ)
         });
       }
       if(importRecords.length === 0){ toast('ไม่พบรายการที่มี SKU'); return; }
@@ -1101,16 +1116,32 @@ function handleImportFile(e){
 
 function showImportPreview(){
   $('importCount').textContent = importRecords.length;
+  const provisional = r => computeImportStatus(r, {});   // สถานะคาดการณ์ (จริงๆ คงเดิมถ้ามีของเก่า)
   $('importPreviewBody').innerHTML = importRecords.slice(0,50).map(r => `<tr>
     <td style="padding:7px 10px">${esc(r.po_number||'—')}</td>
     <td style="padding:7px 10px">${esc(r.sku)}</td>
     <td style="padding:7px 10px">${r.quantity||'—'}</td>
+    <td style="padding:7px 10px">${r.received_qty!=null?r.received_qty:'—'}</td>
     <td style="padding:7px 10px">${r.eta?fmtDate(r.eta):'—'}</td>
-    <td style="padding:7px 10px">${esc(r.status)}</td>
+    <td style="padding:7px 10px">${esc(provisional(r))}</td>
     <td style="padding:7px 10px">${esc(r.note||'—')}</td>
-  </tr>`).join('') + (importRecords.length>50 ? `<tr><td colspan="6" style="padding:8px;text-align:center;color:var(--muted)">…และอีก ${importRecords.length-50} รายการ</td></tr>` : '');
+  </tr>`).join('') + (importRecords.length>50 ? `<tr><td colspan="7" style="padding:8px;text-align:center;color:var(--muted)">…และอีก ${importRecords.length-50} รายการ</td></tr>` : '');
   $('importPreview').style.display = 'block';
   $('importConfirm').disabled = false; $('importConfirm').style.opacity = '1';
+}
+
+// คำนวณสถานะตอนนำเข้า: โมฆะ→ยกเลิก / เข้าครบ→เข้าคลังแล้ว / บางส่วน→คงสถานะเดิม
+function computeImportStatus(rec, existMap){
+  if(rec._erp === 'ยกเลิก') return 'ยกเลิก';
+  const ordered = rec.quantity || 0;
+  const recv = rec.received_qty;
+  if(recv != null && ordered > 0 && recv >= ordered) return 'เข้าคลังแล้ว';   // เข้าครบ
+  // เข้าบางส่วน/ยังไม่เข้า
+  const key = (rec.po_number||'') + '||' + rec.sku;
+  if(existMap[key] != null) return existMap[key];                              // คงสถานะเดิม
+  // แถวใหม่ (ไม่มีของเดิม)
+  if(recv != null && recv > 0) return 'อยู่ระหว่างขนส่ง';
+  return rec._erp === 'เข้าคลังแล้ว' ? 'อยู่ระหว่างขนส่ง' : rec._erp;
 }
 
 async function confirmImport(){
@@ -1118,7 +1149,15 @@ async function confirmImport(){
   $('importConfirm').disabled = true; $('importConfirm').textContent = 'กำลังนำเข้า...';
   const email = (await sb.auth.getUser()).data.user?.email || 'purchase';
   const now = new Date().toISOString();
-  const payload = importRecords.map(r => ({ ...r, created_by: email, updated_at: now }));
+  // ดึงสถานะเดิมของทุกแถว ไว้ตัดสินใจกรณีเข้าบางส่วน (คงสถานะเดิม)
+  const { data: existing } = await sb.from('purchase_orders').select('po_number,sku,status');
+  const existMap = {};
+  (existing || []).forEach(o => { existMap[(o.po_number||'')+'||'+o.sku] = o.status; });
+
+  const payload = importRecords.map(r => {
+    const { _erp, ...rest } = r;
+    return { ...rest, status: computeImportStatus(r, existMap), created_by: email, updated_at: now };
+  });
   // upsert: ถ้า PO+SKU ซ้ำ → อัพเดทของเดิม / ถ้าใหม่ → เพิ่ม (ไม่สร้างแถวซ้ำ)
   const { error } = await sb.from('purchase_orders')
     .upsert(payload, { onConflict: 'po_number,sku' });
@@ -1140,6 +1179,7 @@ function isEtaSoon(d){ if(!d) return false; const diff=(new Date(d)-new Date())/
 function sortValue(o, key){
   switch(key){
     case 'quantity':  return o.quantity != null ? o.quantity : -Infinity;
+    case 'received_qty': return o.received_qty != null ? o.received_qty : -Infinity;
     case 'eta':       return o.eta ? new Date(o.eta).getTime() : Infinity;
     case 'status':    return STATUS_ORDER[o.status] || 99;
     default:          return (o[key] || '').toString().toLowerCase();
