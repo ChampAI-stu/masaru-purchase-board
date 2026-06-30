@@ -1708,10 +1708,12 @@ function renderPlan(){
         if(canEdit) row += `<td class="num" style="color:var(--muted)">${lineNo}</td>`;
         if(poSpan[idx]) row += `<td rowspan="${poSpan[idx]}" class="po-cell">${it.po_number?esc(it.po_number):'—'}</td>`;
         row += `<td>${it.sku?esc(it.sku):'—'}</td>`;
-        row += `<td class="num">${it.qty_in!=null?it.qty_in.toLocaleString():0}</td>`;
         if(canEdit){
           row += `<td class="num">${numCell(it.pcs_per_carton)}</td>`;
           row += `<td class="num">${numCell(it.cartons)}</td>`;
+        }
+        row += `<td class="num">${it.qty_in!=null?it.qty_in.toLocaleString():0}</td>`;
+        if(canEdit){
           row += `<td class="num">${numCell(it.cubic)}</td>`;
         }
         row += `<td class="num">${it.clear_order!=null?it.clear_order.toLocaleString():0}</td>`;
@@ -1732,9 +1734,9 @@ function renderPlan(){
     if(canEdit){
       tbody += `<tr class="plan-subtotal">
         <td colspan="2"></td><td style="font-weight:700;text-align:right">รวม</td>
-        <td class="num">${sumIn.toLocaleString()}</td>
         <td></td>
         <td class="num">${sumCartons.toLocaleString()}</td>
+        <td class="num">${sumIn.toLocaleString()}</td>
         <td class="num">${sumCubic.toLocaleString()}</td>
         <td class="num">${sumClear.toLocaleString()}</td>
         <td colspan="3"></td></tr>`;
@@ -1745,8 +1747,9 @@ function renderPlan(){
     }
 
     const headPurchase = `<th class="num">เลขที่รายการ</th><th>รหัส PO</th><th>SKU</th>`
+      + `<th class="num">ชิ้น/ลัง</th><th class="num">ลัง</th>`
       + `<th class="num">ของเข้า</th>`
-      + `<th class="num">ชิ้น/ลัง</th><th class="num">ลัง</th><th class="num">คิว</th>`
+      + `<th class="num">คิว</th>`
       + `<th class="num">เคลียออเดอร์</th>`
       + `<th>หมายเหตุ</th><th>ขนส่ง</th><th>จัดการ</th>`;
     const headMarketing = `<th>รหัส PO</th><th>SKU</th><th class="num">ของเข้า</th><th class="num">เคลียออเดอร์</th>`;
@@ -1930,7 +1933,7 @@ function doExportPlan(){
   const byDate = {};
   trips.forEach(t => { (byDate[t.plan_date]=byDate[t.plan_date]||[]).push(t); });
   const dates = Object.keys(byDate).sort();
-  const aoa = [['วันที่','เลขที่รายการ','รหัส PO','SKU','ของเข้า','ชิ้น/ลัง','ลัง','คิว','เคลียออเดอร์','หมายเหตุ','ขนส่ง']];
+  const aoa = [['วันที่','เลขที่รายการ','รหัส PO','SKU','ชิ้น/ลัง','ลัง','ของเข้า','คิว','เคลียออเดอร์','หมายเหตุ','ขนส่ง']];
   dates.forEach(date => {
     let lineNo=0, sIn=0, sCart=0, sCub=0, sClr=0;
     byDate[date].forEach(t => {
@@ -1939,16 +1942,16 @@ function doExportPlan(){
         sIn+=(it.qty_in||0); sCart+=(it.cartons||0); sCub+=(Number(it.cubic)||0); sClr+=(it.clear_order||0);
         aoa.push([
           fmtDayThai(date), lineNo, it.po_number||'', it.sku||'',
-          it.qty_in!=null?it.qty_in:'', it.pcs_per_carton!=null?it.pcs_per_carton:'',
-          it.cartons!=null?it.cartons:'', it.cubic!=null?Number(it.cubic):'',
+          it.pcs_per_carton!=null?it.pcs_per_carton:'', it.cartons!=null?it.cartons:'',
+          it.qty_in!=null?it.qty_in:'', it.cubic!=null?Number(it.cubic):'',
           it.clear_order!=null?it.clear_order:'', it.note||'', t.carrier||''
         ]);
       });
     });
-    aoa.push(['','','','รวม', sIn, '', sCart, sCub, sClr, '', '']);
+    aoa.push(['','','','รวม', '', sCart, sIn, sCub, sClr, '', '']);
   });
   const wsheet = XLSX.utils.aoa_to_sheet(aoa);
-  wsheet['!cols'] = [{wch:18},{wch:11},{wch:12},{wch:14},{wch:9},{wch:9},{wch:7},{wch:7},{wch:12},{wch:30},{wch:18}];
+  wsheet['!cols'] = [{wch:18},{wch:11},{wch:12},{wch:14},{wch:9},{wch:7},{wch:9},{wch:7},{wch:12},{wch:30},{wch:18}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, wsheet, 'แผนรับสินค้า');
   XLSX.writeFile(wb, `แผนรับสินค้า_${from}_ถึง_${to}.xlsx`);
