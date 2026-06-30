@@ -254,10 +254,10 @@
   .plan-table .plan-subtotal td{background:#EEF2F7;font-weight:700;border-top:2px solid #475569}
   /* แถวกรอกในฟอร์มเที่ยว */
   .trip-lines-wrap{overflow-x:auto;padding-bottom:4px}
-  .trip-lines-head,.trip-line{min-width:720px}
-  .trip-lines-head{display:grid;grid-template-columns:108px 1fr 60px 60px 48px 52px 66px 150px 28px;gap:6px;
+  .trip-lines-head,.trip-line{min-width:780px}
+  .trip-lines-head{display:grid;grid-template-columns:56px 96px 1fr 54px 44px 58px 50px 58px 130px 26px;gap:6px;
     font-size:11px;color:var(--muted);margin-bottom:6px;padding:0 2px}
-  .trip-line{display:grid;grid-template-columns:108px 1fr 60px 60px 48px 52px 66px 150px 28px;gap:6px;margin-bottom:8px;align-items:center}
+  .trip-line{display:grid;grid-template-columns:56px 96px 1fr 54px 44px 58px 50px 58px 130px 26px;gap:6px;margin-bottom:8px;align-items:center}
   .trip-line input{width:100%;padding:9px 7px;border:1px solid var(--line);border-radius:8px}
   .trip-line input:focus{outline:none;border-color:var(--navy-light);box-shadow:0 0 0 3px #2E75B622}
   /* แถบเลื่อนสัปดาห์ */
@@ -479,11 +479,12 @@
     </div>
     <div class="trip-lines-wrap">
     <div class="trip-lines-head">
+      <span>เลขที่</span>
       <span>รหัส PO</span>
       <span>SKU</span>
-      <span>ของเข้า</span>
       <span>ชิ้น/ลัง</span>
       <span>ลัง</span>
+      <span>ของเข้า</span>
       <span>คิว</span>
       <span>เคลียร์</span>
       <span>หมายเหตุ</span>
@@ -1686,7 +1687,6 @@ function renderPlan(){
       : (CARRIERS.find(x=>x.name===c)
           ? `<span class="carrier-tag" style="background:${carrierColor(c)}">${esc(c)}</span>`
           : `<span style="font-size:12.5px">${esc(c)}</span>`);
-    let lineNo = 0;
     let tbody = '';
     dayTrips.forEach((t, tripIdx) => {
       const items = t.items.length ? t.items : [{}];
@@ -1702,10 +1702,9 @@ function renderPlan(){
         i=j+1;
       }
       items.forEach((it, idx) => {
-        lineNo++;
         const startCls = (idx===0 && tripIdx>0) ? ' class="trip-start"' : '';
         let row = `<tr${startCls}>`;
-        if(canEdit) row += `<td class="num" style="color:var(--muted)">${lineNo}</td>`;
+        if(canEdit) row += `<td class="num" style="color:var(--muted)">${(it.line_no!=null&&it.line_no!=='')?esc(String(it.line_no)):'—'}</td>`;
         if(poSpan[idx]) row += `<td rowspan="${poSpan[idx]}" class="po-cell">${it.po_number?esc(it.po_number):'—'}</td>`;
         row += `<td>${it.sku?esc(it.sku):'—'}</td>`;
         if(canEdit){
@@ -1811,11 +1810,12 @@ function addTripLine(vals={}){
   const line = document.createElement('div');
   line.className = 'trip-line';
   line.innerHTML = `
+    <input type="text" class="tl-lineno" placeholder="1" value="${vals.lineno!=null?esc(String(vals.lineno)):''}">
     <input type="text" class="tl-po" placeholder="18969" value="${vals.po?esc(vals.po):''}">
     <input type="text" class="tl-sku" placeholder="DR30-XXX" value="${vals.sku?esc(vals.sku):''}">
-    <input type="number" class="tl-in" placeholder="0" min="0" value="${vals.qin!=null?vals.qin:''}">
     <input type="number" class="tl-pcs" placeholder="0" min="0" value="${vals.pcs!=null?vals.pcs:''}">
     <input type="number" class="tl-cartons" placeholder="0" min="0" value="${vals.cartons!=null?vals.cartons:''}">
+    <input type="number" class="tl-in" placeholder="0" min="0" value="${vals.qin!=null?vals.qin:''}">
     <input type="number" class="tl-cubic" placeholder="0" min="0" step="0.01" value="${vals.cubic!=null?vals.cubic:''}">
     <input type="number" class="tl-clear" placeholder="0" min="0" value="${vals.clear!=null?vals.clear:''}">
     <input type="text" class="tl-note" placeholder="หมายเหตุ" value="${vals.note?esc(vals.note):''}">
@@ -1848,7 +1848,7 @@ window.openEditTrip = function(id){
   $('tripId').value=t.id; $('tpDate').value=t.plan_date||''; $('tpCarrier').value=t.carrier||'';
   $('tpPoLookup').value='';
   $('tripLines').innerHTML='';
-  if(t.items.length) t.items.forEach(i => addTripLine({ po:i.po_number, sku:i.sku, qin:i.qty_in, clear:i.clear_order, pcs:i.pcs_per_carton, cartons:i.cartons, cubic:i.cubic, note:i.note }));
+  if(t.items.length) t.items.forEach(i => addTripLine({ lineno:i.line_no, po:i.po_number, sku:i.sku, qin:i.qty_in, clear:i.clear_order, pcs:i.pcs_per_carton, cartons:i.cartons, cubic:i.cubic, note:i.note }));
   else addTripLine();
   $('tripBg').style.display='flex';
 };
@@ -1856,6 +1856,7 @@ window.openEditTrip = function(id){
 function collectTripLines(){
   const numOrNull = el => el.value==='' ? null : (parseFloat(el.value)||0);
   return [...$('tripLines').querySelectorAll('.trip-line')].map(l => ({
+    line_no: l.querySelector('.tl-lineno').value.trim() || null,
     po_number: l.querySelector('.tl-po').value.trim() || null,
     sku: l.querySelector('.tl-sku').value.trim() || null,
     qty_in: l.querySelector('.tl-in').value==='' ? null : (parseInt(l.querySelector('.tl-in').value)||0),
@@ -1935,13 +1936,12 @@ function doExportPlan(){
   const dates = Object.keys(byDate).sort();
   const aoa = [['วันที่','เลขที่รายการ','รหัส PO','SKU','ชิ้น/ลัง','ลัง','ของเข้า','คิว','เคลียออเดอร์','หมายเหตุ','ขนส่ง']];
   dates.forEach(date => {
-    let lineNo=0, sIn=0, sCart=0, sCub=0, sClr=0;
+    let sIn=0, sCart=0, sCub=0, sClr=0;
     byDate[date].forEach(t => {
       (t.items.length ? t.items : [{}]).forEach(it => {
-        lineNo++;
         sIn+=(it.qty_in||0); sCart+=(it.cartons||0); sCub+=(Number(it.cubic)||0); sClr+=(it.clear_order||0);
         aoa.push([
-          fmtDayThai(date), lineNo, it.po_number||'', it.sku||'',
+          fmtDayThai(date), it.line_no||'', it.po_number||'', it.sku||'',
           it.pcs_per_carton!=null?it.pcs_per_carton:'', it.cartons!=null?it.cartons:'',
           it.qty_in!=null?it.qty_in:'', it.cubic!=null?Number(it.cubic):'',
           it.clear_order!=null?it.clear_order:'', it.note||'', t.carrier||''
