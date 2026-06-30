@@ -448,6 +448,15 @@
     </div>
 
     <div class="sku-section-label">รายการสินค้าในเที่ยวนี้</div>
+    <div class="m-field" style="background:var(--blue-bg);border-radius:9px;padding:12px">
+      <label style="font-weight:600">⚡ ดึง SKU จาก PO (จากบอร์ด)</label>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="tpPoLookup" list="tripPoList" placeholder="พิมพ์เลข PO เช่น 18969" style="flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:9px">
+        <button type="button" class="btn-save" id="addPoLinesBtn" style="flex:0 0 auto;padding:0 18px">+ ดึง SKU</button>
+      </div>
+      <datalist id="tripPoList"></datalist>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:6px">พิมพ์เลข PO → ดึง SKU ทั้งหมดของ PO นั้นมาให้อัตโนมัติ (กรอกมือเพิ่มด้านล่างก็ได้)</div>
+    </div>
     <div class="trip-lines-head">
       <span>รหัส PO</span>
       <span>SKU</span>
@@ -1631,7 +1640,25 @@ $('tripClose').addEventListener('click', closeTrip);
 $('tripCancel').addEventListener('click', closeTrip);
 $('tripBg').addEventListener('click', e => { if(e.target===$('tripBg')) closeTrip(); });
 $('addTripLineBtn').addEventListener('click', () => addTripLine());
+$('addPoLinesBtn').addEventListener('click', addPoLines);
+$('tpPoLookup').addEventListener('keypress', e => { if(e.key==='Enter'){ e.preventDefault(); addPoLines(); } });
 $('tripSave').addEventListener('click', saveTrip);
+
+function addPoLines(){
+  const po = $('tpPoLookup').value.trim();
+  if(!po){ toast('กรอกเลข PO ก่อน'); return; }
+  const matches = allOrders.filter(o => o.po_number === po);
+  if(matches.length === 0){ toast('ไม่พบ PO นี้ในบอร์ด'); return; }
+  // ถ้ามีบรรทัดว่างบรรทัดเดียว ลบทิ้งก่อน
+  const lines = $('tripLines').querySelectorAll('.trip-line');
+  if(lines.length === 1){
+    const l = lines[0];
+    if(!l.querySelector('.tl-po').value && !l.querySelector('.tl-sku').value) l.remove();
+  }
+  matches.forEach(o => addTripLine({ po:o.po_number, sku:o.sku, qin:o.quantity, clear:null }));
+  $('tpPoLookup').value='';
+  toast(`ดึง ${matches.length} SKU จาก PO ${po} แล้ว`);
+}
 
 function closeTrip(){ $('tripBg').style.display='none'; }
 
@@ -1651,18 +1678,26 @@ function addTripLine(vals={}){
   $('tripLines').appendChild(line);
 }
 
+function fillTripPoList(){
+  const pos = [...new Set(allOrders.map(o=>o.po_number).filter(Boolean))].sort();
+  $('tripPoList').innerHTML = pos.map(p=>`<option value="${esc(p)}">`).join('');
+}
+
 function openAddTrip(){
+  fillTripPoList();
   $('tripTitle').textContent = 'เพิ่มเที่ยวส่ง';
   $('tripId').value=''; $('tpDate').value=''; $('tpCarrier').value=''; $('tpNote').value='';
+  $('tpPoLookup').value='';
   $('tripLines').innerHTML=''; addTripLine();
   $('tripBg').style.display='flex';
 }
 
 window.openEditTrip = function(id){
   const t = allTrips.find(x=>x.id===id); if(!t) return;
+  fillTripPoList();
   $('tripTitle').textContent = 'แก้ไขเที่ยวส่ง';
   $('tripId').value=t.id; $('tpDate').value=t.plan_date||''; $('tpCarrier').value=t.carrier||'';
-  $('tpNote').value=t.note||'';
+  $('tpNote').value=t.note||''; $('tpPoLookup').value='';
   $('tripLines').innerHTML='';
   if(t.items.length) t.items.forEach(i => addTripLine({ po:i.po_number, sku:i.sku, qin:i.qty_in, clear:i.clear_order }));
   else addTripLine();
