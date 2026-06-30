@@ -1630,10 +1630,8 @@ function planStamp(){
   const latest = allTrips.reduce((a,b) =>
     new Date(b.updated_at||b.created_at||0) > new Date(a.updated_at||a.created_at||0) ? b : a);
   const when = latest.updated_at || latest.created_at;
-  const who = latest.updated_by || latest.created_by || '—';
-  const whoShort = who.includes('@') ? who.split('@')[0] : who;
   const dt = new Date(when).toLocaleString('th-TH',{day:'2-digit',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit'});
-  $('planLastUp').innerHTML = `<span style="display:inline-block;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 13px;color:var(--text)">🕒 อัพเดทล่าสุด: <b>${dt} น.</b> · โดย <b>${esc(whoShort)}</b></span>`;
+  $('planLastUp').innerHTML = `<span style="display:inline-block;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 13px;color:var(--text)">🕒 อัพเดทล่าสุด: <b>${dt} น.</b></span>`;
 }
 
 function fmtDayThai(d){
