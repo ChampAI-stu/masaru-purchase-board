@@ -334,6 +334,7 @@
       </select>
       <button class="add-btn" id="importBtn" style="display:none;background:#1E7145">📥 นำเข้า Excel</button>
       <button class="add-btn" id="addBtn" style="display:none">+ เพิ่ม PO</button>
+      <button class="add-btn" id="poUpdateBtn" style="display:none;background:#2E75B6">🔄 อัพเดท PO</button>
       <button class="add-btn" id="bulkModeBtn" style="display:none;background:#fff;color:var(--red);border:1px solid var(--red)">🗑️ ลบที่เลือก</button>
       <button class="add-btn" id="bulkDelBtn" style="display:none;background:var(--red)">🗑️ ลบที่เลือก (0)</button>
       <button class="add-btn" id="bulkCancelBtn" style="display:none;background:#fff;color:var(--text);border:1px solid var(--line)">ยกเลิก</button>
@@ -513,6 +514,49 @@
   </div>
 </div>
 
+<!-- ============ Modal อัพเดท PO ทั้งใบ ============ -->
+<div class="modal-bg" id="poUpdateBg">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>🔄 อัพเดท PO ทั้งใบ</h2>
+      <button class="modal-close" id="poUpdateClose">&times;</button>
+    </div>
+    <div class="m-field">
+      <label>เลขที่ PO</label>
+      <input type="text" id="puPO" list="poList" placeholder="เช่น 19568">
+      <datalist id="poList"></datalist>
+      <div id="puCount" style="font-size:12px;margin-top:6px"></div>
+    </div>
+    <div style="background:var(--blue-bg);border-radius:9px;padding:10px 12px;font-size:12.5px;line-height:1.6;margin-bottom:14px">
+      💡 เว้นว่าง = ไม่เปลี่ยนช่องนั้น — กรอกเฉพาะที่ต้องการอัพเดท<br>ทุก SKU ในเลข PO นี้จะเปลี่ยนเหมือนกันทันที
+    </div>
+    <div class="m-row">
+      <div class="m-field">
+        <label>สถานะ</label>
+        <select id="puStatus">
+          <option value="">— ไม่เปลี่ยน —</option>
+          <option value="อยู่ระหว่างสั่งซื้อ">อยู่ระหว่างสั่งซื้อ</option>
+          <option value="อยู่ระหว่างขนส่ง">อยู่ระหว่างขนส่ง</option>
+          <option value="รอนำส่งเข้าคลัง">รอนำส่งเข้าคลัง</option>
+          <option value="เข้าคลังแล้ว">เข้าคลังแล้ว</option>
+        </select>
+      </div>
+      <div class="m-field">
+        <label>วันที่เข้าคลัง</label>
+        <input type="date" id="puEta">
+      </div>
+    </div>
+    <div class="m-field">
+      <label>หมายเหตุ</label>
+      <textarea id="puNote" placeholder="เว้นว่าง = ไม่เปลี่ยน"></textarea>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-cancel" id="poUpdateCancel">ยกเลิก</button>
+      <button class="btn-save" id="poUpdateSave">อัพเดททั้ง PO</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -640,6 +684,7 @@ function enterApp(session){
   if(currentRole === 'purchase'){
     $('rolePill').textContent = '📦 ฝ่ายจัดซื้อ';
     $('addBtn').style.display='block';
+    $('poUpdateBtn').style.display='block';
     $('importBtn').style.display='block';
     $('actionsHead').style.display='';
     $('bulkModeBtn').style.display='block';
@@ -1251,6 +1296,50 @@ async function confirmImport(){
   if(error){ toast('นำเข้าไม่สำเร็จ: '+error.message); return; }
   $('importBg').style.display = 'none';
   toast(`นำเข้า/อัพเดท ${payload.length} รายการเรียบร้อย`);
+  loadOrders();
+}
+
+// ===== อัพเดท PO ทั้งใบ (ทุก SKU ในเลข PO เดียวกัน) =====
+$('poUpdateBtn').addEventListener('click', openPoUpdate);
+$('poUpdateClose').addEventListener('click', () => $('poUpdateBg').style.display='none');
+$('poUpdateCancel').addEventListener('click', () => $('poUpdateBg').style.display='none');
+$('poUpdateBg').addEventListener('click', e => { if(e.target===$('poUpdateBg')) $('poUpdateBg').style.display='none'; });
+$('puPO').addEventListener('input', updatePoCount);
+$('poUpdateSave').addEventListener('click', savePoUpdate);
+
+function openPoUpdate(){
+  const pos = [...new Set(allOrders.map(o=>o.po_number).filter(Boolean))].sort();
+  $('poList').innerHTML = pos.map(p=>`<option value="${esc(p)}">`).join('');
+  $('puPO').value=''; $('puStatus').value=''; $('puEta').value=''; $('puNote').value='';
+  $('puCount').textContent='';
+  $('poUpdateBg').style.display='flex';
+}
+
+function updatePoCount(){
+  const po = $('puPO').value.trim();
+  if(!po){ $('puCount').textContent=''; return; }
+  const n = allOrders.filter(o=>o.po_number===po).length;
+  $('puCount').textContent = n>0 ? `พบ ${n} รายการใน PO นี้` : 'ไม่พบ PO นี้';
+  $('puCount').style.color = n>0 ? 'var(--green)' : 'var(--red)';
+}
+
+async function savePoUpdate(){
+  const po = $('puPO').value.trim();
+  if(!po){ toast('กรุณากรอกเลขที่ PO'); return; }
+  const matches = allOrders.filter(o=>o.po_number===po);
+  if(matches.length===0){ toast('ไม่พบ PO นี้ในระบบ'); return; }
+  const upd = { updated_at: new Date().toISOString() };
+  if($('puStatus').value)      upd.status = $('puStatus').value;
+  if($('puEta').value)         upd.eta = $('puEta').value;
+  if($('puNote').value.trim()) upd.note = $('puNote').value.trim();
+  if(Object.keys(upd).length===1){ toast('กรอกอย่างน้อย 1 ช่อง (สถานะ/วันที่/หมายเหตุ)'); return; }
+  if(!confirm(`อัพเดท ${matches.length} รายการใน PO ${po} ให้เหมือนกันทั้งหมด?`)) return;
+  $('poUpdateSave').disabled=true; $('poUpdateSave').textContent='กำลังอัพเดท...';
+  const { error } = await sb.from('purchase_orders').update(upd).eq('po_number', po);
+  $('poUpdateSave').disabled=false; $('poUpdateSave').textContent='อัพเดททั้ง PO';
+  if(error){ toast('อัพเดทไม่สำเร็จ: '+error.message); return; }
+  $('poUpdateBg').style.display='none';
+  toast(`อัพเดท ${matches.length} รายการใน PO ${po} เรียบร้อย`);
   loadOrders();
 }
 
