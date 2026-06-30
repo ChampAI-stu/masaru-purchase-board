@@ -357,6 +357,7 @@
               <th class="sortable" data-sort="eta">วันที่เข้าคลัง<span class="sort-ind"></span></th>
               <th class="sortable" data-sort="status">สถานะ PO<span class="sort-ind"></span></th>
               <th>หมายเหตุ</th>
+              <th class="sortable" data-sort="updated_at">วันที่อัพเดท<span class="sort-ind"></span></th>
               <th id="actionsHead" style="display:none">จัดการ</th>
             </tr>
           </thead>
@@ -765,7 +766,9 @@ $('editAnnounceSave').addEventListener('click', async () => {
 // ===== DATA =====
 async function loadOrders(){
   const { data, error } = await sb.from('purchase_orders')
-    .select('*').order('created_at',{ascending:false});
+    .select('*')
+    .order('updated_at',{ascending:false,nullsFirst:false})
+    .order('created_at',{ascending:false});
   if(error){ console.error(error); return; }
   allOrders = data || [];
   render();
@@ -810,7 +813,7 @@ function render(){
   renderSummary();
   const tb = $('tableBody');
   if(rows.length === 0){
-    const colspan = currentRole==='purchase' ? (selectionMode?10:9) : 8;
+    const colspan = currentRole==='purchase' ? (selectionMode?11:10) : 9;
     tb.innerHTML = `<tr><td colspan="${colspan}"><div class="empty">
       <div class="big">📋</div>ยังไม่มีรายการ${q||sf?'ที่ตรงกับการค้นหา':''}</div></td></tr>`;
     renderPagination(0);
@@ -857,6 +860,7 @@ function render(){
       <td>${etaCell}</td>
       <td><span class="badge ${STATUS_CLASS[o.status]||''}">${STATUS_ICON[o.status]||''} ${esc(o.status)}</span></td>
       <td><span class="note">${o.note?esc(o.note):'—'}</span></td>
+      <td style="font-size:12px;color:var(--muted);white-space:nowrap">${fmtDateTime(o.updated_at)}</td>
       ${actions}
     </tr>`;
   }).join('');
@@ -1349,6 +1353,12 @@ function fmtDate(d){
   const months=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   const dt=new Date(d); return `${dt.getDate()} ${months[dt.getMonth()]} ${(dt.getFullYear()+543)%100}`;
 }
+function fmtDateTime(d){
+  if(!d) return '—';
+  const dt=new Date(d);
+  const t=dt.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+  return `${fmtDate(d)} ${t} น.`;
+}
 function isEtaSoon(d){ if(!d) return false; const diff=(new Date(d)-new Date())/(1000*60*60*24); return diff>=0 && diff<=7; }
 // ===== การเรียงคอลัมน์ =====
 function sortValue(o, key){
@@ -1356,6 +1366,7 @@ function sortValue(o, key){
     case 'quantity':  return o.quantity != null ? o.quantity : -Infinity;
     case 'received_qty': return o.received_qty != null ? o.received_qty : -Infinity;
     case 'eta':       return o.eta ? new Date(o.eta).getTime() : Infinity;
+    case 'updated_at': return o.updated_at ? new Date(o.updated_at).getTime() : -Infinity;
     case 'status':    return STATUS_ORDER[o.status] || 99;
     default:          return (o[key] || '').toString().toLowerCase();
   }
