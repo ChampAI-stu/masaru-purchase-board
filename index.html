@@ -61,7 +61,7 @@
   .container{max-width:1200px;margin:0 auto;padding:20px 24px}
 
   /* summary */
-  .summary{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px}
+  .summary{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
   .sum-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 18px}
   .sum-label{font-size:12px;color:var(--muted)}
   .sum-val{font-size:24px;font-weight:700;margin-top:3px}
@@ -370,8 +370,6 @@
         <div class="sum-val" id="sumSoon" style="color:var(--amber)">0</div><div class="sum-sub" id="sumSoonQty">0 ชิ้น</div></div>
       <div class="sum-card"><div class="sum-label">⚠️ เลยกำหนด</div>
         <div class="sum-val" id="sumOver" style="color:var(--red)">0</div><div class="sum-sub">รายการ</div></div>
-      <div class="sum-card"><div class="sum-label">📅 ของเข้าถัดไป</div>
-        <div class="sum-val" id="sumEta" style="font-size:16px;color:var(--blue)">—</div><div class="sum-sub" id="sumEtaName">—</div></div>
     </div>
 
     <div class="toolbar">
@@ -1113,13 +1111,6 @@ function renderSummary(){
   $('sumSoonQty').textContent = sumQty(soon).toLocaleString() + ' ชิ้น';
   // เลยกำหนด
   $('sumOver').textContent = allOrders.filter(o=>etaState(o.eta,o.status)==='over').length;
-  // ของเข้าถัดไป (ETA ใกล้สุดที่ยังไม่เข้าคลัง)
-  const upcoming = allOrders.filter(o=>o.eta && o.status!=='เข้าคลังแล้ว')
-    .sort((a,b)=>new Date(a.eta)-new Date(b.eta));
-  if(upcoming.length){
-    $('sumEta').textContent = fmtDate(upcoming[0].eta);
-    $('sumEtaName').textContent = upcoming[0].sku || ('PO ' + (upcoming[0].po_number||''));
-  } else { $('sumEta').textContent='—'; $('sumEtaName').textContent='—'; }
 }
 
 // ===== MODAL / CRUD =====
