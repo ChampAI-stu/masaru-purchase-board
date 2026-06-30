@@ -253,10 +253,12 @@
   .plan-table tr.trip-start td{border-top:2px solid #475569}
   .plan-table .plan-subtotal td{background:#EEF2F7;font-weight:700;border-top:2px solid #475569}
   /* แถวกรอกในฟอร์มเที่ยว */
-  .trip-lines-head{display:grid;grid-template-columns:1fr 1fr 60px 70px 62px 52px 52px 30px;gap:7px;
+  .trip-lines-wrap{overflow-x:auto;padding-bottom:4px}
+  .trip-lines-head,.trip-line{min-width:720px}
+  .trip-lines-head{display:grid;grid-template-columns:108px 1fr 60px 60px 48px 52px 66px 150px 28px;gap:6px;
     font-size:11px;color:var(--muted);margin-bottom:6px;padding:0 2px}
-  .trip-line{display:grid;grid-template-columns:1fr 1fr 60px 70px 62px 52px 52px 30px;gap:7px;margin-bottom:8px;align-items:center}
-  .trip-line input{width:100%;padding:9px 8px;border:1px solid var(--line);border-radius:8px}
+  .trip-line{display:grid;grid-template-columns:108px 1fr 60px 60px 48px 52px 66px 150px 28px;gap:6px;margin-bottom:8px;align-items:center}
+  .trip-line input{width:100%;padding:9px 7px;border:1px solid var(--line);border-radius:8px}
   .trip-line input:focus{outline:none;border-color:var(--navy-light);box-shadow:0 0 0 3px #2E75B622}
 </style>
 </head>
@@ -441,13 +443,9 @@
         <input type="date" id="tpDate">
       </div>
       <div class="m-field">
-        <label>ขนส่ง</label>
-        <select id="tpCarrier"></select>
+        <label>ขนส่ง (พิมพ์ได้เลย)</label>
+        <input type="text" id="tpCarrier" placeholder="เช่น GTL / หัวลาก เข้าคลัง 1 ทุ่ม">
       </div>
-    </div>
-    <div class="m-field">
-      <label>หมายเหตุ (ใช้ร่วมทั้งเที่ยว)</label>
-      <textarea id="tpNote" placeholder="เช่น หัวลาก 1 คัน นำส่งโกดังใหม่ 19.00 น. พร้อมคนยก"></textarea>
     </div>
 
     <div class="sku-section-label">รายการสินค้าในเที่ยวนี้</div>
@@ -460,17 +458,20 @@
       <datalist id="tripPoList"></datalist>
       <div style="font-size:11.5px;color:var(--muted);margin-top:6px">พิมพ์เลข PO → ดึง SKU ทั้งหมดของ PO นั้นมาให้อัตโนมัติ (กรอกมือเพิ่มด้านล่างก็ได้)</div>
     </div>
+    <div class="trip-lines-wrap">
     <div class="trip-lines-head">
       <span>รหัส PO</span>
       <span>SKU</span>
       <span>ของเข้า</span>
-      <span>เคลียร์</span>
       <span>ชิ้น/ลัง</span>
       <span>ลัง</span>
       <span>คิว</span>
+      <span>เคลียร์</span>
+      <span>หมายเหตุ</span>
       <span></span>
     </div>
     <div id="tripLines"></div>
+    </div>
     <button type="button" class="add-sku-btn" id="addTripLineBtn">+ เพิ่มรายการ</button>
     <div class="modal-foot">
       <button class="btn-cancel" id="tripCancel">ยกเลิก</button>
@@ -803,7 +804,6 @@ function enterApp(session){
   } else {
     $('rolePill').textContent = '👁️ ฝ่ายการตลาด';
   }
-  buildCarrierUI();
   loadOrders();
   loadPlan();
   subscribeRealtime();
@@ -1544,12 +1544,6 @@ const carrierColor = name => (CARRIERS.find(c=>c.name===name)||{}).color || '#64
 
 let allTrips = [];   // [{...trip, items:[...]}]
 
-function buildCarrierUI(){
-  // dropdown ในฟอร์ม
-  $('tpCarrier').innerHTML = '<option value="">— เลือกขนส่ง —</option>'
-    + CARRIERS.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
-}
-
 // ---- แท็บ ----
 $('tabBoard').addEventListener('click', () => switchTab('board'));
 $('tabPlan').addEventListener('click', () => switchTab('plan'));
@@ -1616,10 +1610,17 @@ function renderPlan(){
     const dayTrips = byDate[date];
     const dow = new Date(date).getDay();
     const col = DAY_COLORS[dow];
-    let sumIn=0, sumClear=0;
-    dayTrips.forEach(t => t.items.forEach(i => { sumIn += (i.qty_in||0); sumClear += (i.clear_order||0); }));
+    let sumIn=0, sumClear=0, sumCartons=0, sumCubic=0;
+    dayTrips.forEach(t => t.items.forEach(i => {
+      sumIn += (i.qty_in||0); sumClear += (i.clear_order||0);
+      sumCartons += (i.cartons||0); sumCubic += (Number(i.cubic)||0);
+    }));
 
     const numCell = v => v!=null ? Number(v).toLocaleString() : '—';
+    const carrierHtml = c => !c ? '<span style="color:var(--muted)">—</span>'
+      : (CARRIERS.find(x=>x.name===c)
+          ? `<span class="carrier-tag" style="background:${carrierColor(c)}">${esc(c)}</span>`
+          : `<span style="font-size:12.5px">${esc(c)}</span>`);
     let lineNo = 0;
     let tbody = '';
     dayTrips.forEach((t, tripIdx) => {
@@ -1643,18 +1644,20 @@ function renderPlan(){
         if(poSpan[idx]) row += `<td rowspan="${poSpan[idx]}" class="po-cell">${it.po_number?esc(it.po_number):'—'}</td>`;
         row += `<td>${it.sku?esc(it.sku):'—'}</td>`;
         row += `<td class="num">${it.qty_in!=null?it.qty_in.toLocaleString():0}</td>`;
-        row += `<td class="num">${it.clear_order!=null?it.clear_order.toLocaleString():0}</td>`;
         if(canEdit){
           row += `<td class="num">${numCell(it.pcs_per_carton)}</td>`;
           row += `<td class="num">${numCell(it.cartons)}</td>`;
           row += `<td class="num">${numCell(it.cubic)}</td>`;
         }
-        if(idx===0 && canEdit){
-          row += `<td rowspan="${n}" class="note-cell">${t.note?esc(t.note):'—'}</td>`;
-          row += `<td rowspan="${n}" class="carrier-cell">${t.carrier?`<span class="carrier-tag" style="background:${carrierColor(t.carrier)}">${esc(t.carrier)}</span>`:'<span style="color:var(--muted)">—</span>'}</td>`;
-          row += `<td rowspan="${n}" class="carrier-cell"><div class="trip-acts">
-            <button class="act-btn" onclick="openEditTrip('${t.id}')">✏️</button>
-            <button class="act-btn act-del" onclick="delTrip('${t.id}')">🗑️</button></div></td>`;
+        row += `<td class="num">${it.clear_order!=null?it.clear_order.toLocaleString():0}</td>`;
+        if(canEdit){
+          row += `<td class="note-cell">${it.note?esc(it.note):'—'}</td>`;
+          if(idx===0){
+            row += `<td rowspan="${n}" class="carrier-cell">${carrierHtml(t.carrier)}</td>`;
+            row += `<td rowspan="${n}" class="carrier-cell"><div class="trip-acts">
+              <button class="act-btn" onclick="openEditTrip('${t.id}')">✏️</button>
+              <button class="act-btn act-del" onclick="delTrip('${t.id}')">🗑️</button></div></td>`;
+          }
         }
         row += '</tr>';
         tbody += row;
@@ -1664,8 +1667,12 @@ function renderPlan(){
     if(canEdit){
       tbody += `<tr class="plan-subtotal">
         <td colspan="2"></td><td style="font-weight:700;text-align:right">รวม</td>
-        <td class="num">${sumIn.toLocaleString()}</td><td class="num">${sumClear.toLocaleString()}</td>
-        <td colspan="6"></td></tr>`;
+        <td class="num">${sumIn.toLocaleString()}</td>
+        <td></td>
+        <td class="num">${sumCartons.toLocaleString()}</td>
+        <td class="num">${sumCubic.toLocaleString()}</td>
+        <td class="num">${sumClear.toLocaleString()}</td>
+        <td colspan="3"></td></tr>`;
     } else {
       tbody += `<tr class="plan-subtotal">
         <td></td><td style="font-weight:700;text-align:right">รวม</td>
@@ -1673,15 +1680,16 @@ function renderPlan(){
     }
 
     const headPurchase = `<th class="num">เลขที่รายการ</th><th>รหัส PO</th><th>SKU</th>`
-      + `<th class="num">ของเข้า</th><th class="num">เคลียออเดอร์</th>`
+      + `<th class="num">ของเข้า</th>`
       + `<th class="num">ชิ้น/ลัง</th><th class="num">ลัง</th><th class="num">คิว</th>`
+      + `<th class="num">เคลียออเดอร์</th>`
       + `<th>หมายเหตุ</th><th>ขนส่ง</th><th>จัดการ</th>`;
     const headMarketing = `<th>รหัส PO</th><th>SKU</th><th class="num">ของเข้า</th><th class="num">เคลียออเดอร์</th>`;
 
     return `<div class="plan-day" style="border-top:4px solid ${col.ac}">
       <div class="plan-day-head" style="background:${col.bg};color:${col.ac}">
         <span class="plan-day-title">📦 แผนการรับสินค้า วัน${DAY_NAMES[dow]}ที่ ${fmtDayThai(date)}</span>
-        <span class="plan-day-sum" style="color:${col.ac}">รวม: ของเข้า ${sumIn.toLocaleString()} · เคลียออเดอร์ ${sumClear.toLocaleString()}</span>
+        <span class="plan-day-sum" style="color:${col.ac}">รวม: ของเข้า ${sumIn.toLocaleString()} · ลัง ${sumCartons.toLocaleString()} · คิว ${sumCubic.toLocaleString()} · เคลียออเดอร์ ${sumClear.toLocaleString()}</span>
       </div>
       <div class="table-scroll">
         <table class="plan-table">
@@ -1731,10 +1739,11 @@ function addTripLine(vals={}){
     <input type="text" class="tl-po" placeholder="18969" value="${vals.po?esc(vals.po):''}">
     <input type="text" class="tl-sku" placeholder="DR30-XXX" value="${vals.sku?esc(vals.sku):''}">
     <input type="number" class="tl-in" placeholder="0" min="0" value="${vals.qin!=null?vals.qin:''}">
-    <input type="number" class="tl-clear" placeholder="0" min="0" value="${vals.clear!=null?vals.clear:''}">
     <input type="number" class="tl-pcs" placeholder="0" min="0" value="${vals.pcs!=null?vals.pcs:''}">
     <input type="number" class="tl-cartons" placeholder="0" min="0" value="${vals.cartons!=null?vals.cartons:''}">
     <input type="number" class="tl-cubic" placeholder="0" min="0" step="0.01" value="${vals.cubic!=null?vals.cubic:''}">
+    <input type="number" class="tl-clear" placeholder="0" min="0" value="${vals.clear!=null?vals.clear:''}">
+    <input type="text" class="tl-note" placeholder="หมายเหตุ" value="${vals.note?esc(vals.note):''}">
     <button type="button" class="sku-line-del" title="ลบ">&times;</button>`;
   line.querySelector('.sku-line-del').addEventListener('click', () => {
     const lines = $('tripLines').querySelectorAll('.trip-line');
@@ -1751,7 +1760,7 @@ function fillTripPoList(){
 function openAddTrip(){
   fillTripPoList();
   $('tripTitle').textContent = 'เพิ่มเที่ยวส่ง';
-  $('tripId').value=''; $('tpDate').value=''; $('tpCarrier').value=''; $('tpNote').value='';
+  $('tripId').value=''; $('tpDate').value=''; $('tpCarrier').value='';
   $('tpPoLookup').value='';
   $('tripLines').innerHTML=''; addTripLine();
   $('tripBg').style.display='flex';
@@ -1762,9 +1771,9 @@ window.openEditTrip = function(id){
   fillTripPoList();
   $('tripTitle').textContent = 'แก้ไขเที่ยวส่ง';
   $('tripId').value=t.id; $('tpDate').value=t.plan_date||''; $('tpCarrier').value=t.carrier||'';
-  $('tpNote').value=t.note||''; $('tpPoLookup').value='';
+  $('tpPoLookup').value='';
   $('tripLines').innerHTML='';
-  if(t.items.length) t.items.forEach(i => addTripLine({ po:i.po_number, sku:i.sku, qin:i.qty_in, clear:i.clear_order, pcs:i.pcs_per_carton, cartons:i.cartons, cubic:i.cubic }));
+  if(t.items.length) t.items.forEach(i => addTripLine({ po:i.po_number, sku:i.sku, qin:i.qty_in, clear:i.clear_order, pcs:i.pcs_per_carton, cartons:i.cartons, cubic:i.cubic, note:i.note }));
   else addTripLine();
   $('tripBg').style.display='flex';
 };
@@ -1778,7 +1787,8 @@ function collectTripLines(){
     clear_order: l.querySelector('.tl-clear').value==='' ? null : (parseInt(l.querySelector('.tl-clear').value)||0),
     pcs_per_carton: l.querySelector('.tl-pcs').value==='' ? null : (parseInt(l.querySelector('.tl-pcs').value)||0),
     cartons: l.querySelector('.tl-cartons').value==='' ? null : (parseInt(l.querySelector('.tl-cartons').value)||0),
-    cubic: numOrNull(l.querySelector('.tl-cubic'))
+    cubic: numOrNull(l.querySelector('.tl-cubic')),
+    note: l.querySelector('.tl-note').value.trim() || null
   })).filter(x => x.po_number || x.sku);
 }
 
@@ -1789,8 +1799,7 @@ async function saveTrip(){
   if(lines.length === 0){ toast('กรุณากรอกอย่างน้อย 1 รายการ (PO หรือ SKU)'); return; }
   const tripData = {
     plan_date: date,
-    carrier: $('tpCarrier').value || null,
-    note: $('tpNote').value.trim() || null,
+    carrier: $('tpCarrier').value.trim() || null,
     updated_at: new Date().toISOString()
   };
   const id = $('tripId').value;
