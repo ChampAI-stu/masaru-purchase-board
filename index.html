@@ -224,6 +224,37 @@
     .summary{grid-template-columns:repeat(2,1fr)}
     .m-row{grid-template-columns:1fr}
   }
+
+  /* ===== แท็บ ===== */
+  .tabbar{background:#fff;border-bottom:1px solid var(--line);display:flex;gap:4px;
+    padding:0 24px;position:sticky;top:58px;z-index:9}
+  .tab-btn{background:none;border:none;padding:14px 18px;font-size:15px;font-weight:600;
+    color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-1px}
+  .tab-btn:hover{color:var(--navy)}
+  .tab-btn.active{color:var(--navy);border-bottom-color:var(--gold)}
+
+  /* ===== แผนรับสินค้า ===== */
+  .plan-day{margin-bottom:26px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+  .plan-day-head{background:var(--navy);color:#fff;padding:12px 18px;display:flex;
+    align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+  .plan-day-title{font-size:16px;font-weight:700}
+  .plan-day-sum{font-size:13px;color:var(--gold);font-weight:500}
+  .trip{border-top:1px solid var(--line);padding:14px 18px}
+  .trip:first-child{border-top:none}
+  .trip-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+  .carrier-tag{display:inline-block;font-size:13px;font-weight:600;padding:4px 14px;border-radius:20px;color:#fff}
+  .trip-note{flex:1;min-width:160px;font-size:13px;color:var(--text)}
+  .trip-acts{display:flex;gap:6px}
+  .trip-table{width:100%;border-collapse:collapse;font-size:13px}
+  .trip-table th{text-align:left;color:var(--muted);font-weight:500;padding:6px 10px;font-size:12px;
+    border-bottom:1px solid var(--line)}
+  .trip-table td{padding:7px 10px;border-bottom:1px solid #F1F5F9}
+  .trip-table tr:last-child td{border-bottom:none}
+  .trip-lines-head{display:grid;grid-template-columns:1fr 1fr 80px 90px 34px;gap:8px;
+    font-size:11px;color:var(--muted);margin-bottom:6px;padding:0 2px}
+  .trip-line{display:grid;grid-template-columns:1fr 1fr 80px 90px 34px;gap:8px;margin-bottom:8px;align-items:center}
+  .trip-line input{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px}
+  .trip-line input:focus{outline:none;border-color:var(--navy-light);box-shadow:0 0 0 3px #2E75B622}
 </style>
 </head>
 <body>
@@ -302,6 +333,12 @@
     </div>
   </div>
 
+  <div class="tabbar">
+    <button class="tab-btn active" id="tabBoard">📋 Purchase Board</button>
+    <button class="tab-btn" id="tabPlan">🚚 แผนรับสินค้า</button>
+  </div>
+
+  <div id="viewBoard">
   <div class="container">
     <div class="summary">
       <div class="sum-card"><div class="sum-label">📋 PO ทั้งหมด</div>
@@ -367,6 +404,63 @@
     </div>
     <div class="pagination" id="pagination"></div>
     <div class="last-up" id="lastUpdate"></div>
+  </div>
+  </div><!-- /viewBoard -->
+
+  <!-- ============ VIEW: แผนรับสินค้า ============ -->
+  <div id="viewPlan" style="display:none">
+    <div class="container">
+      <div class="toolbar">
+        <div class="search-wrap">
+          <span class="search-ico">🔍</span>
+          <input type="text" id="planSearch" placeholder="ค้นหา PO, SKU, ขนส่ง, หมายเหตุ...">
+        </div>
+        <input type="date" class="filter-sel" id="planDateFilter" title="กรองวันที่">
+        <button class="add-btn" id="addTripBtn" style="display:none">+ เพิ่มเที่ยวส่ง</button>
+      </div>
+      <div id="planContent"></div>
+      <div class="last-up" id="planLastUp"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Modal เพิ่ม/แก้ไขเที่ยวส่ง ============ -->
+<div class="modal-bg" id="tripBg">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-head">
+      <h2 id="tripTitle">เพิ่มเที่ยวส่ง</h2>
+      <button class="modal-close" id="tripClose">&times;</button>
+    </div>
+    <input type="hidden" id="tripId">
+    <div class="m-row">
+      <div class="m-field">
+        <label>วันที่รับสินค้า</label>
+        <input type="date" id="tpDate">
+      </div>
+      <div class="m-field">
+        <label>ขนส่ง</label>
+        <select id="tpCarrier"></select>
+      </div>
+    </div>
+    <div class="m-field">
+      <label>หมายเหตุ (ใช้ร่วมทั้งเที่ยว)</label>
+      <textarea id="tpNote" placeholder="เช่น หัวลาก 1 คัน นำส่งโกดังใหม่ 19.00 น. พร้อมคนยก"></textarea>
+    </div>
+
+    <div class="sku-section-label">รายการสินค้าในเที่ยวนี้</div>
+    <div class="trip-lines-head">
+      <span>รหัส PO</span>
+      <span>SKU</span>
+      <span>ของเข้า</span>
+      <span>เคลียออเดอร์</span>
+      <span></span>
+    </div>
+    <div id="tripLines"></div>
+    <button type="button" class="add-sku-btn" id="addTripLineBtn">+ เพิ่มรายการ</button>
+    <div class="modal-foot">
+      <button class="btn-cancel" id="tripCancel">ยกเลิก</button>
+      <button class="btn-save" id="tripSave">บันทึก</button>
+    </div>
   </div>
 </div>
 
@@ -690,10 +784,13 @@ function enterApp(session){
     $('actionsHead').style.display='';
     $('bulkModeBtn').style.display='block';
     $('editAnnounceBtn').style.display='block';
+    $('addTripBtn').style.display='block';
   } else {
     $('rolePill').textContent = '👁️ ฝ่ายการตลาด';
   }
+  buildCarrierUI();
   loadOrders();
+  loadPlan();
   subscribeRealtime();
   loadAnnouncement();
 }
@@ -791,6 +888,11 @@ function subscribeRealtime(){
         announceData = payload.new || announceData;
         maybeShowAnnouncement();
       })
+    .subscribe();
+  // แผนรับสินค้า — realtime
+  sb.channel('plan-changes')
+    .on('postgres_changes',{event:'*',schema:'public',table:'receipt_trips'}, () => loadPlan())
+    .on('postgres_changes',{event:'*',schema:'public',table:'receipt_items'}, () => loadPlan())
     .subscribe();
 }
 
@@ -1410,6 +1512,215 @@ function toast(msg){
   const t=$('toast'); t.textContent=msg; t.style.display='block';
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.style.display='none',2800);
 }
+
+// ====================================================================
+// 🚚 แผนรับสินค้า (Receipt Plan)
+// ====================================================================
+const CARRIERS = [
+  { name:'สาย2 (168)',   color:'#E67E22' },
+  { name:'สาย3 (FCL)',   color:'#185FA5' },
+  { name:'ลำพยา (JMF)',  color:'#5BA85B' },
+  { name:'ร่มเกล้า (NEXT)', color:'#C0392B' },
+  { name:'GTL',          color:'#6B2737' },
+  { name:'Angel',        color:'#8E44AD' },
+  { name:'TSD',          color:'#16A085' },
+];
+const carrierColor = name => (CARRIERS.find(c=>c.name===name)||{}).color || '#64748B';
+
+let allTrips = [];   // [{...trip, items:[...]}]
+
+function buildCarrierUI(){
+  // dropdown ในฟอร์ม
+  $('tpCarrier').innerHTML = '<option value="">— เลือกขนส่ง —</option>'
+    + CARRIERS.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
+}
+
+// ---- แท็บ ----
+$('tabBoard').addEventListener('click', () => switchTab('board'));
+$('tabPlan').addEventListener('click', () => switchTab('plan'));
+function switchTab(t){
+  const isBoard = t==='board';
+  $('viewBoard').style.display = isBoard ? 'block' : 'none';
+  $('viewPlan').style.display  = isBoard ? 'none' : 'block';
+  $('tabBoard').classList.toggle('active', isBoard);
+  $('tabPlan').classList.toggle('active', !isBoard);
+}
+
+// ---- โหลดข้อมูลแผน ----
+async function loadPlan(){
+  const [{ data: trips, error: e1 }, { data: items, error: e2 }] = await Promise.all([
+    sb.from('receipt_trips').select('*').order('plan_date',{ascending:false}).order('created_at',{ascending:true}),
+    sb.from('receipt_items').select('*').order('created_at',{ascending:true})
+  ]);
+  if(e1 || e2){ console.error(e1||e2); return; }
+  const byTrip = {};
+  (items||[]).forEach(it => { (byTrip[it.trip_id] = byTrip[it.trip_id] || []).push(it); });
+  allTrips = (trips||[]).map(t => ({ ...t, items: byTrip[t.id] || [] }));
+  renderPlan();
+  $('planLastUp').textContent = `อัพเดทล่าสุด: ${new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})}`;
+}
+
+function fmtDayThai(d){
+  const months=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  const dt=new Date(d); return `${dt.getDate()} ${months[dt.getMonth()]} ${dt.getFullYear()+543}`;
+}
+
+function renderPlan(){
+  const q = $('planSearch').value.toLowerCase().trim();
+  const df = $('planDateFilter').value;
+  // กรอง
+  let trips = allTrips.filter(t => {
+    if(df && t.plan_date !== df) return false;
+    if(!q) return true;
+    const hay = [(t.carrier||''), (t.note||''),
+      ...t.items.map(i=>(i.po_number||'')+' '+(i.sku||''))].join(' ').toLowerCase();
+    return hay.includes(q);
+  });
+  // จัดกลุ่มตามวันที่
+  const byDate = {};
+  trips.forEach(t => { (byDate[t.plan_date] = byDate[t.plan_date] || []).push(t); });
+  const dates = Object.keys(byDate).sort((a,b)=>new Date(b)-new Date(a));
+
+  if(dates.length === 0){
+    $('planContent').innerHTML = `<div class="empty" style="background:#fff;border:1px solid var(--line);border-radius:12px">
+      <div class="big">🚚</div>ยังไม่มีแผนรับสินค้า${q||df?'ที่ตรงกับการค้นหา':''}</div>`;
+    return;
+  }
+  const canEdit = currentRole==='purchase';
+  $('planContent').innerHTML = dates.map(date => {
+    const dayTrips = byDate[date];
+    let sumIn=0, sumClear=0;
+    dayTrips.forEach(t => t.items.forEach(i => { sumIn += (i.qty_in||0); sumClear += (i.clear_order||0); }));
+    const tripsHtml = dayTrips.map(t => {
+      const acts = canEdit ? `<div class="trip-acts">
+        <button class="act-btn" onclick="openEditTrip('${t.id}')">✏️</button>
+        <button class="act-btn act-del" onclick="delTrip('${t.id}')">🗑️</button></div>` : '';
+      const rows = t.items.length ? t.items.map(i => `<tr>
+        <td>${i.po_number?esc(i.po_number):'—'}</td>
+        <td>${i.sku?esc(i.sku):'—'}</td>
+        <td>${i.qty_in!=null?i.qty_in.toLocaleString():0}</td>
+        <td>${i.clear_order!=null?i.clear_order.toLocaleString():0}</td>
+      </tr>`).join('') : `<tr><td colspan="4" style="color:var(--muted)">— ไม่มีรายการ —</td></tr>`;
+      return `<div class="trip">
+        <div class="trip-head">
+          ${t.carrier?`<span class="carrier-tag" style="background:${carrierColor(t.carrier)}">${esc(t.carrier)}</span>`:'<span style="color:var(--muted);font-size:13px">— ไม่ระบุขนส่ง —</span>'}
+          <span class="trip-note">${t.note?esc(t.note):''}</span>
+          ${acts}
+        </div>
+        <table class="trip-table"><thead><tr>
+          <th>รหัส PO</th><th>SKU</th><th>ของเข้า</th><th>เคลียออเดอร์</th>
+        </tr></thead><tbody>${rows}</tbody></table>
+      </div>`;
+    }).join('');
+    return `<div class="plan-day">
+      <div class="plan-day-head">
+        <span class="plan-day-title">📦 แผนการรับสินค้า วันที่ ${fmtDayThai(date)}</span>
+        <span class="plan-day-sum">รวม: ของเข้า ${sumIn.toLocaleString()} · เคลียออเดอร์ ${sumClear.toLocaleString()}</span>
+      </div>
+      ${tripsHtml}
+    </div>`;
+  }).join('');
+}
+
+$('planSearch').addEventListener('input', renderPlan);
+$('planDateFilter').addEventListener('change', renderPlan);
+
+// ---- ฟอร์มเที่ยวส่ง ----
+$('addTripBtn').addEventListener('click', openAddTrip);
+$('tripClose').addEventListener('click', closeTrip);
+$('tripCancel').addEventListener('click', closeTrip);
+$('tripBg').addEventListener('click', e => { if(e.target===$('tripBg')) closeTrip(); });
+$('addTripLineBtn').addEventListener('click', () => addTripLine());
+$('tripSave').addEventListener('click', saveTrip);
+
+function closeTrip(){ $('tripBg').style.display='none'; }
+
+function addTripLine(vals={}){
+  const line = document.createElement('div');
+  line.className = 'trip-line';
+  line.innerHTML = `
+    <input type="text" class="tl-po" placeholder="18969" value="${vals.po?esc(vals.po):''}">
+    <input type="text" class="tl-sku" placeholder="DR30-XXX" value="${vals.sku?esc(vals.sku):''}">
+    <input type="number" class="tl-in" placeholder="0" min="0" value="${vals.qin!=null?vals.qin:''}">
+    <input type="number" class="tl-clear" placeholder="0" min="0" value="${vals.clear!=null?vals.clear:''}">
+    <button type="button" class="sku-line-del" title="ลบ">&times;</button>`;
+  line.querySelector('.sku-line-del').addEventListener('click', () => {
+    const lines = $('tripLines').querySelectorAll('.trip-line');
+    if(lines.length > 1) line.remove(); else toast('ต้องมีอย่างน้อย 1 รายการ');
+  });
+  $('tripLines').appendChild(line);
+}
+
+function openAddTrip(){
+  $('tripTitle').textContent = 'เพิ่มเที่ยวส่ง';
+  $('tripId').value=''; $('tpDate').value=''; $('tpCarrier').value=''; $('tpNote').value='';
+  $('tripLines').innerHTML=''; addTripLine();
+  $('tripBg').style.display='flex';
+}
+
+window.openEditTrip = function(id){
+  const t = allTrips.find(x=>x.id===id); if(!t) return;
+  $('tripTitle').textContent = 'แก้ไขเที่ยวส่ง';
+  $('tripId').value=t.id; $('tpDate').value=t.plan_date||''; $('tpCarrier').value=t.carrier||'';
+  $('tpNote').value=t.note||'';
+  $('tripLines').innerHTML='';
+  if(t.items.length) t.items.forEach(i => addTripLine({ po:i.po_number, sku:i.sku, qin:i.qty_in, clear:i.clear_order }));
+  else addTripLine();
+  $('tripBg').style.display='flex';
+};
+
+function collectTripLines(){
+  return [...$('tripLines').querySelectorAll('.trip-line')].map(l => ({
+    po_number: l.querySelector('.tl-po').value.trim() || null,
+    sku: l.querySelector('.tl-sku').value.trim() || null,
+    qty_in: l.querySelector('.tl-in').value==='' ? null : (parseInt(l.querySelector('.tl-in').value)||0),
+    clear_order: l.querySelector('.tl-clear').value==='' ? null : (parseInt(l.querySelector('.tl-clear').value)||0)
+  })).filter(x => x.po_number || x.sku);
+}
+
+async function saveTrip(){
+  const date = $('tpDate').value;
+  if(!date){ toast('กรุณาเลือกวันที่รับสินค้า'); return; }
+  const lines = collectTripLines();
+  if(lines.length === 0){ toast('กรุณากรอกอย่างน้อย 1 รายการ (PO หรือ SKU)'); return; }
+  const tripData = {
+    plan_date: date,
+    carrier: $('tpCarrier').value || null,
+    note: $('tpNote').value.trim() || null,
+    updated_at: new Date().toISOString()
+  };
+  const id = $('tripId').value;
+  $('tripSave').disabled=true; $('tripSave').textContent='กำลังบันทึก...';
+  let tripId = id, error;
+
+  if(id){
+    ({ error } = await sb.from('receipt_trips').update(tripData).eq('id', id));
+    if(!error) await sb.from('receipt_items').delete().eq('trip_id', id);   // ลบรายการเดิม ใส่ใหม่
+  } else {
+    const email = (await sb.auth.getUser()).data.user?.email || 'purchase';
+    const res = await sb.from('receipt_trips').insert({ ...tripData, created_by: email }).select('id').single();
+    error = res.error; tripId = res.data?.id;
+  }
+  if(!error && tripId){
+    const itemRows = lines.map(l => ({ ...l, trip_id: tripId }));
+    const r = await sb.from('receipt_items').insert(itemRows);
+    error = r.error;
+  }
+  $('tripSave').disabled=false; $('tripSave').textContent='บันทึก';
+  if(error){ toast('บันทึกไม่สำเร็จ: '+error.message); return; }
+  closeTrip();
+  toast(id ? 'แก้ไขเที่ยวส่งเรียบร้อย' : 'เพิ่มเที่ยวส่งเรียบร้อย');
+  loadPlan();
+}
+
+window.delTrip = async function(id){
+  const t = allTrips.find(x=>x.id===id);
+  if(!confirm(`ลบเที่ยวส่งนี้ (${t?.items.length||0} รายการ) ใช่หรือไม่?`)) return;
+  const { error } = await sb.from('receipt_trips').delete().eq('id', id);   // items ลบตาม (cascade)
+  if(error){ toast('ลบไม่สำเร็จ: '+error.message); return; }
+  toast('ลบเที่ยวส่งเรียบร้อย');
+  loadPlan();
+};
 
 // ===== INIT: check existing session =====
 (async () => {
