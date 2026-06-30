@@ -443,7 +443,6 @@
         <button class="add-btn" id="addTripBtn" style="display:none">+ เพิ่มเที่ยวส่ง</button>
       </div>
       <div id="planContent"></div>
-      <div class="last-up" id="planLastUp"></div>
     </div>
   </div>
 </div>
@@ -1621,17 +1620,6 @@ async function loadPlan(){
   (items||[]).forEach(it => { (byTrip[it.trip_id] = byTrip[it.trip_id] || []).push(it); });
   allTrips = (trips||[]).map(t => ({ ...t, items: byTrip[t.id] || [] }));
   renderPlan();
-  planStamp();
-}
-
-function planStamp(){
-  if(!allTrips.length){ $('planLastUp').innerHTML=''; return; }
-  // หาเที่ยวที่อัพเดทล่าสุด
-  const latest = allTrips.reduce((a,b) =>
-    new Date(b.updated_at||b.created_at||0) > new Date(a.updated_at||a.created_at||0) ? b : a);
-  const when = latest.updated_at || latest.created_at;
-  const dt = new Date(when).toLocaleString('th-TH',{day:'2-digit',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit'});
-  $('planLastUp').innerHTML = `<span style="display:inline-block;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 13px;color:var(--text)">🕒 อัพเดทล่าสุด: <b>${dt} น.</b></span>`;
 }
 
 function fmtDayThai(d){
@@ -1691,6 +1679,11 @@ function renderPlan(){
       sumIn += (i.qty_in||0); sumClear += (i.clear_order||0);
       sumCartons += (i.cartons||0); sumCubic += (Number(i.cubic)||0);
     }));
+    // เวลาอัพเดทล่าสุดของวันนี้
+    const dayWhen = dayTrips.reduce((mx,t)=>{ const w=new Date(t.updated_at||t.created_at||0); return w>mx?w:mx; }, new Date(0));
+    const dayUpdStr = dayWhen.getTime()>0
+      ? dayWhen.toLocaleString('th-TH',{day:'2-digit',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit'})+' น.'
+      : '';
 
     const numCell = v => v!=null ? Number(v).toLocaleString() : '—';
     const carrierHtml = c => !c ? '<span style="color:var(--muted)">—</span>'
@@ -1765,7 +1758,10 @@ function renderPlan(){
 
     return `<div class="plan-day" style="border-top:4px solid ${col.ac}">
       <div class="plan-day-head" style="background:${col.bg};color:${col.ac}">
-        <span class="plan-day-title">📦 แผนการรับสินค้า วัน${DAY_NAMES[dow]}ที่ ${fmtDayThai(date)}</span>
+        <div>
+          <div class="plan-day-title">📦 แผนการรับสินค้า วัน${DAY_NAMES[dow]}ที่ ${fmtDayThai(date)}</div>
+          ${dayUpdStr?`<div style="font-size:11.5px;opacity:.85;margin-top:3px">🕒 อัพเดทล่าสุด: ${dayUpdStr}</div>`:''}
+        </div>
         <span class="plan-day-sum" style="color:${col.ac}">รวม: ของเข้า ${sumIn.toLocaleString()} · ลัง ${sumCartons.toLocaleString()} · คิว ${sumCubic.toLocaleString()} · เคลียออเดอร์ ${sumClear.toLocaleString()}</span>
       </div>
       <div class="table-scroll">
