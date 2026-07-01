@@ -37,6 +37,9 @@
   .msg{font-size:13px;margin-top:9px;min-height:18px}
   .msg.err{color:var(--red)} .msg.ok{color:var(--green)}
   .hide{display:none!important}
+  .role-row{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--ink);margin-top:6px;cursor:pointer}
+  .role-row input[type=checkbox]{width:16px;height:16px;cursor:pointer}
+  .role-code{width:100%;padding:8px 11px;border:1px solid var(--line);border-radius:8px;margin:5px 0 4px 24px;max-width:calc(100% - 24px)}
 
   /* ===== HUB ===== */
   header.top{background:var(--navy);color:#fff;padding:14px 26px;display:flex;align-items:center;gap:14px;
@@ -88,13 +91,9 @@
     <div id="signupBox" class="hide">
       <div class="fld"><label>อีเมล</label><input id="suEmail" type="email" placeholder="name@masaru.co.th"></div>
       <div class="fld"><label>รหัสผ่าน (อย่างน้อย 6 ตัว)</label><input id="suPassword" type="password"></div>
-      <div class="fld"><label>บทบาท</label>
-        <select id="suRole">
-          <option value="purchase">จัดซื้อ</option>
-          <option value="marketing">การตลาด</option>
-        </select>
+      <div class="fld"><label>บทบาท (เลือกได้หลายอัน — ใส่รหัสเชิญของแต่ละบทบาท)</label>
+        <div id="roleChecks"></div>
       </div>
-      <div class="fld"><label>รหัสเชิญ (ตามบทบาท)</label><input id="suInvite" placeholder="ขอจากแอดมิน"></div>
       <button class="btn-primary" id="signupBtn">สมัครสมาชิก</button>
       <div class="msg err hide" id="signupErr"></div>
       <div class="msg ok hide" id="signupOk"></div>
@@ -152,8 +151,23 @@ async function loadApps(){
   }catch(e){ return APPS_FALLBACK; }
 }
 
-const ROLE_LABEL = { purchase:'จัดซื้อ', marketing:'การตลาด' };
-const ALLOWED = ['purchase','marketing'];   // บทบาทที่เข้าหน้ารวมได้ (ตอนนี้)
+const ROLE_LABEL = { purchase:'จัดซื้อ', marketing:'การตลาด', pr_manager:'หัวหน้า (อนุมัติ)', pr_exec:'ผู้บริหาร (อนุมัติ)' };
+const ALLOWED = ['purchase','marketing','pr_manager','pr_exec'];   // บทบาทที่เข้าหน้ารวมได้
+// บทบาทที่เลือกได้ตอนสมัคร (แต่ละอันมีรหัสเชิญของตัวเอง)
+const SIGNUP_ROLES = [
+  { key:'purchase',   label:'จัดซื้อ' },
+  { key:'marketing',  label:'การตลาด' },
+  { key:'pr_manager', label:'หัวหน้า (อนุมัติ PR)' },
+  { key:'pr_exec',    label:'ผู้บริหาร (อนุมัติ PR)' },
+];
+
+// อ่านบทบาททั้งหมดของบัญชี (รองรับทั้งแบบ array ใหม่ และ single เดิม)
+function getRoles(session){
+  const m = session.user?.app_metadata || {};
+  if(Array.isArray(m.user_roles) && m.user_roles.length) return m.user_roles;
+  if(m.user_role) return [m.user_role];
+  return [];
+}
 
 // ===== BOOT =====
 (async function boot(){
@@ -169,8 +183,9 @@ function showAuth(){
 }
 
 async function showHub(session){
-  const role = session.user?.app_metadata?.user_role;
-  if(!ALLOWED.includes(role)){
+  const roles = getRoles(session);
+  const allowedRoles = roles.filter(r => ALLOWED.includes(r));
+  if(!allowedRoles.length){
     // บัญชีที่ไม่ได้สมัครผ่านระบบนี้ → เด้งออก
     sb.auth.signOut();
     showAuth();
@@ -180,12 +195,12 @@ async function showHub(session){
   $('bootScreen').classList.add('hide');
   $('authScreen').classList.add('hide');
   $('hubScreen').classList.remove('hide');
-  $('rolePill').textContent = 'บทบาท: ' + (ROLE_LABEL[role]||role);
+  $('rolePill').textContent = 'บทบาท: ' + roles.map(r => ROLE_LABEL[r]||r).join(' · ');
   $('appGrid').innerHTML = '<div class="empty-apps">กำลังโหลดรายการระบบ...</div>';
 
-  // ดึงรายการเว็บจากตาราง portal_apps แล้วกรองตามบทบาท
+  // ดึงรายการเว็บจากตาราง portal_apps แล้วกรองตามบทบาท (มี role ไหนตรงก็เห็น)
   const all = await loadApps();
-  const apps = all.filter(a => (a.roles||[]).includes(role));
+  const apps = all.filter(a => (a.roles||[]).some(r => roles.includes(r)));
   $('hubSub').textContent = apps.length
     ? `คุณมีสิทธิ์เข้าใช้งาน ${apps.length} ระบบ — แตะการ์ดเพื่อเปิดในแท็บใหม่ (เปิดพร้อมกันได้หลายเว็บ)`
     : 'ยังไม่มีระบบที่คุณมีสิทธิ์เข้าใช้งาน';
@@ -236,25 +251,49 @@ $('toLogin').addEventListener('click', () => {
   $('signupBox').classList.add('hide'); $('loginBox').classList.remove('hide');
 });
 
-// ===== SIGNUP (invite code เดียวกับ Board) =====
+// ===== SIGNUP (หลายบทบาท + รหัสเชิญต่ออัน) =====
+function renderRoleChecks(){
+  $('roleChecks').innerHTML = SIGNUP_ROLES.map(r => `
+    <label class="role-row"><input type="checkbox" class="role-cb" value="${r.key}"> ${r.label}</label>
+    <input type="text" class="role-code" data-role="${r.key}" placeholder="รหัสเชิญ${r.label}" style="display:none">
+  `).join('');
+  document.querySelectorAll('.role-cb').forEach(cb => cb.addEventListener('change', e => {
+    const code = document.querySelector(`.role-code[data-role="${e.target.value}"]`);
+    code.style.display = e.target.checked ? 'block' : 'none';
+    if(!e.target.checked) code.value = '';
+  }));
+}
+renderRoleChecks();
+
 $('signupBtn').addEventListener('click', doSignup);
 async function doSignup(){
   const email = $('suEmail').value.trim(), password = $('suPassword').value;
-  const role = $('suRole').value, invite = $('suInvite').value.trim();
   const err = $('signupErr'), ok = $('signupOk');
   err.classList.add('hide'); ok.classList.add('hide');
+
+  const checked = [...document.querySelectorAll('.role-cb:checked')].map(c => c.value);
+  const invite_codes = {};
+  for(const role of checked){
+    const code = document.querySelector(`.role-code[data-role="${role}"]`).value.trim();
+    if(code) invite_codes[role] = code;
+  }
+
   if(!email || !password){ err.textContent='กรุณากรอกอีเมลและรหัสผ่าน'; err.classList.remove('hide'); return; }
   if(password.length < 6){ err.textContent='รหัสผ่านต้องอย่างน้อย 6 ตัว'; err.classList.remove('hide'); return; }
-  if(!invite){ err.textContent='กรุณากรอกรหัสเชิญ'; err.classList.remove('hide'); return; }
+  if(!checked.length){ err.textContent='กรุณาเลือกอย่างน้อย 1 บทบาท'; err.classList.remove('hide'); return; }
+  if(checked.some(r => !invite_codes[r])){ err.textContent='กรุณากรอกรหัสเชิญของทุกบทบาทที่เลือก'; err.classList.remove('hide'); return; }
+
   $('signupBtn').disabled = true; $('signupBtn').textContent = 'กำลังสมัคร...';
   const { error } = await sb.auth.signUp({ email, password,
-    options: { data: { user_role: role, invite_code: invite } } });
+    options: { data: { user_roles: checked, invite_codes } } });
   $('signupBtn').disabled = false; $('signupBtn').textContent = 'สมัครสมาชิก';
   if(error){
-    err.textContent = 'สมัครไม่สำเร็จ — รหัสเชิญอาจไม่ถูกต้อง หรืออีเมลนี้ถูกใช้แล้ว';
+    err.textContent = 'สมัครไม่สำเร็จ — รหัสเชิญบางบทบาทไม่ถูกต้อง หรืออีเมลนี้ถูกใช้แล้ว';
     err.classList.remove('hide'); return;
   }
-  $('suEmail').value=''; $('suPassword').value=''; $('suInvite').value='';
+  $('suEmail').value=''; $('suPassword').value='';
+  document.querySelectorAll('.role-cb').forEach(c => { c.checked=false; });
+  document.querySelectorAll('.role-code').forEach(c => { c.value=''; c.style.display='none'; });
   ok.textContent = '🎉 สมัครสำเร็จ! กดปุ่ม "เข้าสู่ระบบ" เพื่อเริ่มใช้งาน';
   ok.classList.remove('hide');
 }
