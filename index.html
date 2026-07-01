@@ -895,9 +895,12 @@ $('logoutBtn').addEventListener('click', async () => {
 });
 
 function enterApp(session){
-  const role = session.user?.app_metadata?.user_role;
-  // อนุญาตเฉพาะบัญชีที่สมัครผ่านเว็บนี้ (มีสิทธิ์ purchase/marketing เท่านั้น)
-  if(role !== 'purchase' && role !== 'marketing'){
+  const meta = session.user?.app_metadata || {};
+  const roles = (Array.isArray(meta.user_roles) && meta.user_roles.length)
+    ? meta.user_roles
+    : (meta.user_role ? [meta.user_role] : []);
+  // อนุญาตเฉพาะบัญชีที่มีสิทธิ์ purchase/marketing (สมัครผ่านระบบนี้)
+  if(!roles.includes('purchase') && !roles.includes('marketing')){
     sb.auth.signOut();
     $('app').style.display='none';
     $('loginScreen').style.display='flex';
@@ -906,7 +909,8 @@ function enterApp(session){
     showLoginErr('บัญชีนี้ไม่มีสิทธิ์เข้าใช้ระบบนี้ — ต้องสมัครสมาชิกผ่านหน้าเว็บนี้เท่านั้น');
     return;
   }
-  currentRole = role;
+  // มี purchase → แก้ไขได้ ; ไม่มีก็เป็น marketing (ดูอย่างเดียว)
+  currentRole = roles.includes('purchase') ? 'purchase' : 'marketing';
   $('loginScreen').style.display='none';
   $('app').style.display='block';
   // role UI
