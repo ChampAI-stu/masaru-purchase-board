@@ -261,6 +261,16 @@ function renderRoleChecks(){
     const code = document.querySelector(`.role-code[data-role="${e.target.value}"]`);
     code.style.display = e.target.checked ? 'block' : 'none';
     if(!e.target.checked) code.value = '';
+    // กัน pr_manager + pr_exec พร้อมกัน (ติ๊กอันนึง อีกอันติ๊กไม่ได้)
+    if(e.target.checked && (e.target.value==='pr_manager' || e.target.value==='pr_exec')){
+      const other = e.target.value==='pr_manager' ? 'pr_exec' : 'pr_manager';
+      const otherCb = document.querySelector(`.role-cb[value="${other}"]`);
+      if(otherCb.checked){
+        otherCb.checked = false;
+        const oc = document.querySelector(`.role-code[data-role="${other}"]`);
+        oc.style.display='none'; oc.value='';
+      }
+    }
   }));
 }
 renderRoleChecks();
@@ -281,6 +291,10 @@ async function doSignup(){
   if(!email || !password){ err.textContent='กรุณากรอกอีเมลและรหัสผ่าน'; err.classList.remove('hide'); return; }
   if(password.length < 6){ err.textContent='รหัสผ่านต้องอย่างน้อย 6 ตัว'; err.classList.remove('hide'); return; }
   if(!checked.length){ err.textContent='กรุณาเลือกอย่างน้อย 1 บทบาท'; err.classList.remove('hide'); return; }
+  if(checked.includes('pr_manager') && checked.includes('pr_exec')){
+    err.textContent='เลือก "หัวหน้า" กับ "ผู้บริหาร" พร้อมกันไม่ได้ — เลือกได้อย่างใดอย่างหนึ่ง';
+    err.classList.remove('hide'); return;
+  }
   if(checked.some(r => !invite_codes[r])){ err.textContent='กรุณากรอกรหัสเชิญของทุกบทบาทที่เลือก'; err.classList.remove('hide'); return; }
 
   $('signupBtn').disabled = true; $('signupBtn').textContent = 'กำลังสมัคร...';
