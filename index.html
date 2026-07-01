@@ -347,6 +347,7 @@
     </div>
     <div class="topbar-right">
       <span class="rt-status"><span class="rt-dot"></span>realtime</span>
+      <button class="logout-btn" id="statusHelpBtn">ℹ️ สถานะ PO</button>
       <button class="logout-btn" id="editAnnounceBtn" style="display:none">📢 แก้ประกาศ</button>
       <span class="role-pill" id="rolePill">—</span>
       <button class="logout-btn" id="logoutBtn">ออกจากระบบ</button>
@@ -734,6 +735,38 @@
   </div>
 </div>
 
+<!-- ============ Modal คำอธิบายสถานะ ============ -->
+<div class="modal-bg" id="statusHelpBg">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-head">
+      <h2>📊 คำอธิบายสถานะ PO</h2>
+      <button class="modal-close" id="statusHelpClose">&times;</button>
+    </div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:16px">ความหมายของแต่ละสถานะในระบบ</div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <span class="badge b-wait" style="flex:0 0 auto">🛒 อยู่ระหว่างสั่งซื้อ</span>
+        <span style="font-size:13px;line-height:1.6;padding-top:3px">PR อนุมัติแล้ว, สั่งแล้ว, ระหว่างผลิต</span>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <span class="badge b-transit" style="flex:0 0 auto">🚚 อยู่ระหว่างขนส่ง</span>
+        <span style="font-size:13px;line-height:1.6;padding-top:3px">อยู่ระหว่างขนส่งมายังประเทศไทย</span>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <span class="badge b-ordered" style="flex:0 0 auto">📥 รอนำส่งเข้าคลัง</span>
+        <span style="font-size:13px;line-height:1.6;padding-top:3px">ถึงไทยแล้ว เตรียมนำส่งไดกิ</span>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <span class="badge b-arrived" style="flex:0 0 auto">📦 เข้าคลังแล้ว</span>
+        <span style="font-size:13px;line-height:1.6;padding-top:3px">คลังได้รับสินค้าเข้าระบบแล้ว</span>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-save" id="statusHelpOk" style="flex:1">รับทราบ</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -952,6 +985,12 @@ $('editAnnounceSave').addEventListener('click', async () => {
   closeEditAnnounce();
   toast('บันทึกประกาศเรียบร้อย');
 });
+
+// ===== คำอธิบายสถานะ =====
+$('statusHelpBtn').addEventListener('click', () => $('statusHelpBg').style.display='flex');
+$('statusHelpClose').addEventListener('click', () => $('statusHelpBg').style.display='none');
+$('statusHelpOk').addEventListener('click', () => $('statusHelpBg').style.display='none');
+$('statusHelpBg').addEventListener('click', e => { if(e.target===$('statusHelpBg')) $('statusHelpBg').style.display='none'; });
 
 // ===== DATA =====
 async function loadOrders(){
