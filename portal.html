@@ -172,7 +172,7 @@ function showHub(session){
   // กรองเว็บตามบทบาท
   const apps = APPS.filter(a => a.roles.includes(role));
   $('hubSub').textContent = apps.length
-    ? `คุณมีสิทธิ์เข้าใช้งาน ${apps.length} ระบบ — แตะการ์ดเพื่อเข้าใช้งาน`
+    ? `คุณมีสิทธิ์เข้าใช้งาน ${apps.length} ระบบ — แตะการ์ดเพื่อเปิดในแท็บใหม่ (เปิดพร้อมกันได้หลายเว็บ)`
     : 'ยังไม่มีระบบที่คุณมีสิทธิ์เข้าใช้งาน';
 
   $('appGrid').innerHTML = apps.length
@@ -182,12 +182,12 @@ function showHub(session){
         <div class="app-name">${a.title}</div>
         <div class="app-desc">${a.desc}</div>
         ${a.note?`<div class="app-note">💡 ${a.note}</div>`:''}
-        <div class="app-go">เข้าใช้งาน →</div>
+        <div class="app-go">เปิดในแท็บใหม่ ↗</div>
       </button>`).join('')
     : `<div class="empty-apps">ยังไม่มีระบบที่บทบาทนี้เข้าใช้งานได้<br>ติดต่อแอดมินเพื่อขอสิทธิ์เพิ่ม</div>`;
 
   document.querySelectorAll('.app-tile').forEach(t =>
-    t.addEventListener('click', () => { window.location.href = t.dataset.url; }));
+    t.addEventListener('click', () => { window.open(t.dataset.url, '_blank'); }));
 }
 
 function showLoginErr(msg){ const e=$('loginErr'); e.textContent=msg; e.classList.remove('hide'); }
