@@ -126,10 +126,10 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
 
 // ====================================================================
-// ทะเบียนเว็บ (แก้ที่นี่เพื่อเพิ่ม/ลดเว็บ) — roles = บทบาทที่เห็นเว็บนี้
-// (ขั้นถัดไปจะย้ายไปเก็บในตารางฐานข้อมูล ให้แก้ได้โดยไม่ต้องแตะโค้ด)
+// ทะเบียนเว็บ — ตอนนี้ดึงจากตาราง portal_apps ใน Supabase
+// (ค่าด้านล่างเป็น "ค่าสำรอง" ใช้เฉพาะตอน DB ยังไม่พร้อม/โหลดไม่ได้)
 // ====================================================================
-const APPS = [
+const APPS_FALLBACK = [
   { key:'board', icon:'📋', title:'Purchase Board',
     desc:'ติดตามสถานะ PO / SKU + แผนรับสินค้า แบบเรียลไทม์',
     url:'index.html', roles:['purchase','marketing'] },
@@ -138,6 +138,19 @@ const APPS = [
     url:'https://champai-stu.github.io/masaru-pr/', roles:['purchase'],
     note:'ยังเป็นระบบแยก — จะรวมเข้าระบบเดียวในขั้นถัดไป' },
 ];
+
+// ดึงรายการเว็บจากตาราง portal_apps (ถ้าไม่ได้ → ใช้ค่าสำรอง)
+async function loadApps(){
+  try{
+    const { data, error } = await sb.from('portal_apps')
+      .select('*').eq('active', true).order('sort_order');
+    if(error || !data || !data.length) return APPS_FALLBACK;
+    return data.map(a => ({
+      key:a.app_key, icon:a.icon, title:a.title, desc:a.description,
+      url:a.url, note:a.note, roles:a.roles || []
+    }));
+  }catch(e){ return APPS_FALLBACK; }
+}
 
 const ROLE_LABEL = { purchase:'จัดซื้อ', marketing:'การตลาด' };
 const ALLOWED = ['purchase','marketing'];   // บทบาทที่เข้าหน้ารวมได้ (ตอนนี้)
@@ -155,7 +168,7 @@ function showAuth(){
   $('authScreen').classList.remove('hide');
 }
 
-function showHub(session){
+async function showHub(session){
   const role = session.user?.app_metadata?.user_role;
   if(!ALLOWED.includes(role)){
     // บัญชีที่ไม่ได้สมัครผ่านระบบนี้ → เด้งออก
@@ -168,9 +181,11 @@ function showHub(session){
   $('authScreen').classList.add('hide');
   $('hubScreen').classList.remove('hide');
   $('rolePill').textContent = 'บทบาท: ' + (ROLE_LABEL[role]||role);
+  $('appGrid').innerHTML = '<div class="empty-apps">กำลังโหลดรายการระบบ...</div>';
 
-  // กรองเว็บตามบทบาท
-  const apps = APPS.filter(a => a.roles.includes(role));
+  // ดึงรายการเว็บจากตาราง portal_apps แล้วกรองตามบทบาท
+  const all = await loadApps();
+  const apps = all.filter(a => (a.roles||[]).includes(role));
   $('hubSub').textContent = apps.length
     ? `คุณมีสิทธิ์เข้าใช้งาน ${apps.length} ระบบ — แตะการ์ดเพื่อเปิดในแท็บใหม่ (เปิดพร้อมกันได้หลายเว็บ)`
     : 'ยังไม่มีระบบที่คุณมีสิทธิ์เข้าใช้งาน';
