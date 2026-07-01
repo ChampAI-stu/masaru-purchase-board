@@ -717,6 +717,10 @@
       <div class="m-field">
         <label>วันที่เข้าคลัง</label>
         <input type="date" id="puEta">
+        <label style="display:flex;align-items:center;gap:7px;margin-top:8px;font-weight:400;cursor:pointer">
+          <input type="checkbox" id="puClearEta" style="width:16px;height:16px;cursor:pointer">
+          ล้างวันที่ (ทำให้เป็น —)
+        </label>
       </div>
     </div>
     <div class="m-field">
@@ -1482,12 +1486,17 @@ $('poUpdateClose').addEventListener('click', () => $('poUpdateBg').style.display
 $('poUpdateCancel').addEventListener('click', () => $('poUpdateBg').style.display='none');
 $('poUpdateBg').addEventListener('click', e => { if(e.target===$('poUpdateBg')) $('poUpdateBg').style.display='none'; });
 $('puPO').addEventListener('input', updatePoCount);
+$('puClearEta').addEventListener('change', e => {
+  $('puEta').disabled = e.target.checked;
+  if(e.target.checked) $('puEta').value = '';
+});
 $('poUpdateSave').addEventListener('click', savePoUpdate);
 
 function openPoUpdate(){
   const pos = [...new Set(allOrders.map(o=>o.po_number).filter(Boolean))].sort();
   $('poList').innerHTML = pos.map(p=>`<option value="${esc(p)}">`).join('');
   $('puPO').value=''; $('puStatus').value=''; $('puEta').value=''; $('puNote').value='';
+  $('puClearEta').checked = false; $('puEta').disabled = false;
   $('puCount').textContent='';
   $('poUpdateBg').style.display='flex';
 }
@@ -1507,7 +1516,8 @@ async function savePoUpdate(){
   if(matches.length===0){ toast('ไม่พบ PO นี้ในระบบ'); return; }
   const upd = { updated_at: new Date().toISOString() };
   if($('puStatus').value)      upd.status = $('puStatus').value;
-  if($('puEta').value)         upd.eta = $('puEta').value;
+  if($('puClearEta').checked)  upd.eta = null;                    // ล้างวันที่ → เป็น —
+  else if($('puEta').value)    upd.eta = $('puEta').value;
   if($('puNote').value.trim()) upd.note = $('puNote').value.trim();
   if(Object.keys(upd).length===1){ toast('กรอกอย่างน้อย 1 ช่อง (สถานะ/วันที่/หมายเหตุ)'); return; }
   if(!confirm(`อัพเดท ${matches.length} รายการใน PO ${po} ให้เหมือนกันทั้งหมด?`)) return;
